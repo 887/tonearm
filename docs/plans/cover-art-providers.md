@@ -1,6 +1,6 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: ✅ DONE (Phases A–E shipped; F deferred per plan)
+## Status: 🟡 IN PROGRESS (Phases A–G shipped; F deferred; Round 3 / Phase H landing)
 
 ## Goal
 
@@ -529,6 +529,68 @@ progress navigator).
       `ID_BEHAVIOUR_COVER_ART` + `SettingsCoverArt` destination + the
       previously-missing `ID_CUSTOM_CHROME_TINT`. Shipped in commit
       e3035aa.
+
+### Phase H — Round 3: per-track covers (the user's library is mostly NewPipe)
+
+User feedback after Round 2: the bulk worker still walks **albums** and
+pins one cover per album. For a library that's almost entirely
+NewPipe-downloaded YouTube tracks (each file is a different video with
+its own embedded 11-char id), MediaStore lumps them into "Music" or an
+arbitrary tag — so the per-album worker pins whichever track's
+thumbnail it sampled to every other track in that bogus album. The fix
+is to walk **tracks** instead, with each track resolving its own cover
+through the existing provider chain (filename-id fast path nails
+NewPipe shapes; Piped / iTunes / MusicBrainz handle the rest).
+
+**Architecture note (per-track vs per-album):** per-track covers live
+in their own Room table (`track_covers`, R1 from
+`docs/plans/album-art-rows.md`), parallel to `album_covers`. UI cover
+resolution falls back: `track_covers` → `album_covers` → MediaStore
+`albumart` URI → placeholder. Pinned per-album covers (user explicit
+choice) still trump everything when no per-track override exists.
+Real-album collections (ripped CDs) land N copies of the same image —
+acceptable redundancy; correctness first.
+
+- [x] **H.1** `AlbumArtBulkProgress` widened: `totalAlbums` →
+      `totalTracks`, `LogEntry.trackTitle` added so the Settings
+      progress screen can name the in-flight song. Shipped in commit
+      760ca05.
+- [x] **H.2** `AlbumArtFetcher.fetchTrack(context, track, chain, ...)`
+      overload. Mirrors the per-album path's precedence
+      (Pinned / IntentionallyEmpty / NoChoice) against the per-track
+      override row; writes hits to `track_covers` via
+      `TrackSource.setTrackCoverUri`. Per-track cache files land in
+      `cacheDir/track_art/<trackId>.jpg`. Shipped in commit
+      760ca05.
+- [x] **H.3** `AlbumArtBulkWorker` pivoted: walks
+      `graph.tracks.observeTracks().first()` instead of albums; calls
+      `fetcher.fetchTrack(...)` per song; every log entry carries
+      `trackTitle` + album/artist context. Kill-switch + no-providers
+      skip branches preserved. Shipped in commit 760ca05.
+- [x] **H.4** `SettingsBulkArtProgressScreen` copy + layout updated:
+      counts read "Songs processed: X / Y · N covers found"; log row
+      headline is the track title with album/artist folded into the
+      subtitle. Shipped in commit 760ca05.
+- [x] **H.5** UI cover-resolution fallback in the playing surfaces:
+      `PlaybackUiState.trackId` plumbed from `MediaItem.mediaId`;
+      `MiniPlayer` + `NowPlayingScreen` (via
+      `NowPlayingMergedSurface`) take a new optional
+      `trackCoverUriOverride` and prefer it over the album-art URI.
+      Wiring at the app root subscribes to
+      `graph.tracks.trackCoverChoice(state.trackId)` and forwards the
+      Pinned URI. Shipped in commit 5ca2f63.
+- [x] **H.6** `settings_content_fill_missing_covers_subtitle` rewritten
+      to plainly describe the per-song behaviour; catalog hardcoded
+      string aligned. Shipped in commit 760ca05.
+- [x] **H.7** AVD verification: pushed 4 real test tracks plus 2
+      NewPipe-renamed copies (`Never Gonna Give You Up-dQw4w9WgXcQ.mp3`,
+      `Test Track Two-9bZkp7q19f0.mp3`) under
+      `/sdcard/Music/tonearmboy-test-newpipe/`. Result: `6 / 6` songs
+      processed, 4 covers found, YouTube provider hit the NewPipe-named
+      files via filename-id extraction. Screenshot at
+      `/tmp/tonearmboy-r3-bulk-log.png`.
+- [ ] **H.8** Release `scripts/build-release-apk.sh --gh-release` so
+      the user can pull via Obtainium.
 
 ## Open questions / decisions
 
