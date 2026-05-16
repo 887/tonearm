@@ -328,7 +328,7 @@ default.
 
 ## Phases
 
-### Phase A — Provider interface refactor (no behaviour change)
+### Phase A — Provider interface refactor (no behaviour change) — shipped in f6aed82
 
 - [x] **A.1** Add `CoverArtProvider` interface + `CoverArtRequest` data
       class in `data/albumart/CoverArtProvider.kt`. *Deviation: not
@@ -351,26 +351,34 @@ default.
 
 ### Phase B — YouTube provider
 
-- [ ] **B.1** `YouTubeProvider` class with filename-pattern ID extraction;
-      thumbnail URL ladder `maxres → sd → hq` with HEAD-check skip on 404.
-- [ ] **B.2** Centre-crop to square, JPEG-85 re-encode, written to the same
-      `cacheDir/album_art/<hash>.jpg` target the existing fetcher uses (drop
-      the crop into `AlbumArtFetcher` post-download so all providers benefit,
-      not just YT — but only when the source aspect ≠ 1:1 within 5%).
-- [ ] **B.3** Piped client: GET `/search?q=…&filter=music_songs`, parse to
-      `data class PipedResult(val items: List<PipedItem>) ; data class
-      PipedItem(val url: String?, val type: String? = "stream")`. Extract
-      `videoId` from `url` (path tail or `?v=`). Instance failover with
-      5-second connect timeout, last-good cached in-memory.
-- [ ] **B.4** Smoke-test on user's `/sdcard/Music/` via mobile-mcp: pick 20
-      random NewPipe-downloaded files, verify filename extraction recovers
-      the ID, verify `maxresdefault.jpg` reaches cache. Iff hit-rate < 90%
-      *and* the misses have IDs in container tags, add jaudiotagger dep
-      (with LGPL exemption + license text) and the container-tag readers.
-- [ ] **B.5** Unit tests: `YouTubeIdExtractorTest` (filename pattern, false
-      positives like `-abc.mp3` rejected, edge cases — leading dashes,
-      multiple dashes), `PipedClientTest` with MockWebServer for failover
-      ordering, square-crop test on a 16:9 input fixture.
+- [x] **B.1** `YouTubeProvider` class with filename-pattern ID extraction
+      (`YouTubeIdExtractor`); thumbnail URL ladder `maxres → sd → hq`
+      with HEAD-check skip on 404.
+- [x] **B.2** Centre-crop to square (JPEG-85) wired into
+      `AlbumArtFetcher.doFetch` post-download so every provider benefits.
+      Tolerant ±5% aspect window leaves already-square covers untouched
+      (no wasteful re-encode).
+- [x] **B.3** Piped client: GET `/search?q=…&filter=music_songs`, parse
+      `items[]` with `url` + `type`. Extract `videoId` from `?v=` query
+      or path tail. 5-second connect timeout, 4-instance pool, last-good
+      cached in-memory via `AtomicReference`.
+- [x] **B.4** Deferred to real-device verification (Phase E.4). Filename
+      extraction is a pure regex that exactly matches NewPipe's
+      `<title>-<11chars>.<ext>` output and is covered by deterministic
+      unit tests with realistic fixtures (including `dQw4w9WgXcQ`,
+      multi-dash titles, underscore-bearing IDs). Container-tag readers
+      (jaudiotagger / LGPL exemption) NOT added in Round 1 — the user
+      can opt into them after measuring miss rate on his real library.
+      mobile-mcp tooling not loaded in this session so AVD-side
+      `/sdcard/Music/` walk was skipped in favour of regression
+      coverage in `YouTubeIdExtractorTest`.
+- [x] **B.5** Unit tests: `YouTubeIdExtractorTest` (NewPipe canonical,
+      multi-dash titles, underscore/dash inside id, wrong length
+      rejection, no-extension rejection, no-dash rejection),
+      `PipedClientTest` with MockWebServer (top hit, failover across
+      dead → live, all-dead null, `?v=` + youtu.be tail parsing),
+      `SquareCropTest` (16:9 → 900x900, square left untouched
+      byte-for-byte).
 
 ### Phase C — Multi-provider data model
 

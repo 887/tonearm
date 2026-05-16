@@ -3518,5 +3518,37 @@
         "scm": {
             "url": "https://github.com/jspecify/jspecify/"
         }
+    },
+    {
+        "groupId": "sh.calvin.reorderable",
+        "artifactId": "reorderable",
+        "version": "2.4.0",
+        "name": "Reorderable",
+        "spdxLicenses": [
+            {
+                "identifier": "Apache-2.0",
+                "name": "Apache License 2.0",
+                "url": "https://www.apache.org/licenses/LICENSE-2.0"
+            }
+        ],
+        "scm": {
+            "url": "https://github.com/Calvin-LL/Reorderable"
+        }
+    },
+    {
+        "groupId": "sh.calvin.reorderable",
+        "artifactId": "reorderable-android-debug",
+        "version": "2.4.0",
+        "name": "Reorderable",
+        "spdxLicenses": [
+            {
+                "identifier": "Apache-2.0",
+                "name": "Apache License 2.0",
+                "url": "https://www.apache.org/licenses/LICENSE-2.0"
+            }
+        ],
+        "scm": {
+            "url": "https://github.com/Calvin-LL/Reorderable"
+        }
     }
 ]

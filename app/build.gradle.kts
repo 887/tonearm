@@ -148,6 +148,9 @@ dependencies {
   // Local tests: jUnit, coroutines, Android runner
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+  // Cover-art Phase B — MockWebServer for the Piped instance-failover
+  // test. Test scope; never ships in the APK.
+  testImplementation(libs.okhttp.mockwebserver)
 
   // Instrumented tests: jUnit rules and runners
   androidTestImplementation(libs.androidx.test.core)
@@ -208,6 +211,11 @@ dependencies {
   // `AlbumPaletteExtractor` to derive dark-muted / dark-vibrant
   // swatches from the playing track's cover bitmap.
   implementation(libs.androidx.palette.ktx)
+
+  // Cover-art Phase D — Compose LazyColumn drag-to-reorder for the
+  // user-prioritised provider list. Small, Apache-2.0, on the licensee
+  // allowlist by default.
+  implementation(libs.reorderable)
 
   // Robolectric-driven JVM unit tests for the data layer (Phase C verification).
   testImplementation(libs.robolectric)

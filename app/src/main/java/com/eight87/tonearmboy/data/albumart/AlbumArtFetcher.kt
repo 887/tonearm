@@ -1,6 +1,8 @@
 package com.eight87.tonearmboy.data.albumart
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import com.eight87.tonearmboy.data.AlbumCoverChoice
 import com.eight87.tonearmboy.data.AlbumSource
 import com.eight87.tonearmboy.data.albumKey
@@ -10,6 +12,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
+import kotlin.math.min
 
 /**
  * album-art Phase D — orchestrator.
@@ -157,8 +161,44 @@ class AlbumArtFetcher(
     }.getOrDefault(false)
     if (!downloaded) return FetchResult.Failed("download")
 
+    // Phase B.2 — square-crop pass. Benefits every provider (YouTube
+    // thumbnails are 16:9, but iTunes' rare landscape promo art and
+    // MusicBrainz' occasional letterbox case also normalise). Tolerant
+    // 5% aspect window: covers already square (or close) are left
+    // untouched to avoid a wasteful decode/re-encode round-trip.
+    cropToSquareIfNeeded(target)
+
     albumSource.setAlbumCoverUri(key, target.toURI().toString())
     return FetchResult.Saved(target.toURI().toString(), providerKind)
+  }
+
+  /**
+   * Decode [file], centre-crop to a square if the source aspect ratio
+   * is outside ±5% of 1:1, re-encode JPEG quality 85, overwrite [file].
+   * On any decode / encode error, leave the file alone — the original
+   * download is still better than nothing.
+   */
+  internal fun cropToSquareIfNeeded(file: File) {
+    runCatching {
+      val src = BitmapFactory.decodeFile(file.absolutePath) ?: return@runCatching
+      val w = src.width
+      val h = src.height
+      if (w == 0 || h == 0) return@runCatching
+      val aspect = w.toFloat() / h.toFloat()
+      if (abs(aspect - 1f) <= ASPECT_TOLERANCE) {
+        src.recycle()
+        return@runCatching
+      }
+      val side = min(w, h)
+      val x = (w - side) / 2
+      val y = (h - side) / 2
+      val cropped = Bitmap.createBitmap(src, x, y, side, side)
+      if (cropped !== src) src.recycle()
+      file.outputStream().use { out ->
+        cropped.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+      }
+      cropped.recycle()
+    }
   }
 
   sealed interface FetchResult {
@@ -179,3 +219,6 @@ class AlbumArtFetcher(
 
 /** Convenience type alias for screens that consume the fetch result. */
 typealias FetchResult = AlbumArtFetcher.FetchResult
+
+private const val ASPECT_TOLERANCE: Float = 0.05f
+private const val JPEG_QUALITY: Int = 85
