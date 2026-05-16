@@ -62,6 +62,12 @@ class AlbumArtFetcher(
    *     [CoverArtService.Disabled] — no requests fired.
    *   - [FetchResult.Failed] on network / IO errors.
    */
+  @Deprecated(
+    "Use the ProviderChain overload (Phase C). This single-service path " +
+      "wraps the legacy enum in a one-element chain and is kept for one " +
+      "release so in-flight callers compile.",
+    ReplaceWith(""),
+  )
   suspend fun fetch(
     context: Context,
     albumName: String,
@@ -71,6 +77,40 @@ class AlbumArtFetcher(
     overwriteUserChoice: Boolean = false,
   ): FetchResult {
     if (service == CoverArtService.Disabled) return FetchResult.ServiceDisabled
+    val chain = when (service) {
+      CoverArtService.Disabled -> return FetchResult.ServiceDisabled
+      CoverArtService.MusicBrainz -> ProviderChain(listOf(MusicBrainzProvider(musicBrainz)))
+      CoverArtService.ITunes -> ProviderChain(listOf(ITunesProvider(iTunes)))
+    }
+    return fetch(
+      context = context,
+      albumName = albumName,
+      albumArtist = albumArtist,
+      sampleTrackPath = null,
+      chain = chain,
+      musicBrainzMinScore = musicBrainzMinScore,
+      overwriteUserChoice = overwriteUserChoice,
+    )
+  }
+
+  /**
+   * Phase A.4 / C.4 entry point — resolve an album to a cover via the
+   * caller-supplied [chain] and pin it locally.
+   *
+   * The chain may be empty (caller decided no providers are active) —
+   * we return [FetchResult.ServiceDisabled] without firing any
+   * requests, preserving the privacy contract of the old `Disabled`
+   * single-service value.
+   */
+  suspend fun fetch(
+    context: Context,
+    albumName: String,
+    albumArtist: String?,
+    sampleTrackPath: String?,
+    chain: ProviderChain,
+    musicBrainzMinScore: Int = 70,
+    overwriteUserChoice: Boolean = false,
+  ): FetchResult {
     val key = albumKey(albumName, albumArtist)
     if (!overwriteUserChoice) {
       when (albumSource.albumCoverChoice(key).first()) {
@@ -80,32 +120,29 @@ class AlbumArtFetcher(
       }
     }
     return AlbumArtFetchRegistry.withFetch(key) {
-      doFetch(context, key, albumName, albumArtist, service, musicBrainzMinScore)
+      doFetch(
+        context = context,
+        key = key,
+        req = CoverArtRequest(
+          albumName = albumName,
+          albumArtist = albumArtist,
+          sampleTrackPath = sampleTrackPath,
+          musicBrainzMinScore = musicBrainzMinScore,
+        ),
+        chain = chain,
+      )
     }
   }
 
   private suspend fun doFetch(
     context: Context,
     key: String,
-    albumName: String,
-    albumArtist: String?,
-    service: CoverArtService,
-    musicBrainzMinScore: Int,
+    req: CoverArtRequest,
+    chain: ProviderChain,
   ): FetchResult {
-    val coverUrl = when (service) {
-      CoverArtService.Disabled -> return FetchResult.ServiceDisabled  // unreachable, satisfies exhaustive when
-      CoverArtService.MusicBrainz -> {
-        // MusicBrainz' release search wants both artist + album to
-        // produce a useful score; without album-artist we'd be
-        // searching against every release in the catalogue.
-        val artist = albumArtist?.takeIf { it.isNotBlank() }
-          ?: return FetchResult.NotFound
-        val mbid = musicBrainz.findReleaseId(artist, albumName, musicBrainzMinScore)
-          ?: return FetchResult.NotFound
-        musicBrainz.coverArtUrl(mbid)
-      }
-      CoverArtService.ITunes -> iTunes.findCoverUrl(albumArtist, albumName)
-    } ?: return FetchResult.NotFound
+    val resolved = chain.resolve(req) ?: return FetchResult.NotFound
+    val coverUrl = resolved.second
+    val providerKind = resolved.first
 
     val cacheDir = File(context.cacheDir, "album_art").also { it.mkdirs() }
     val target = File(cacheDir, "${key.hashCode().toUInt()}.jpg")
@@ -121,11 +158,17 @@ class AlbumArtFetcher(
     if (!downloaded) return FetchResult.Failed("download")
 
     albumSource.setAlbumCoverUri(key, target.toURI().toString())
-    return FetchResult.Saved(target.toURI().toString())
+    return FetchResult.Saved(target.toURI().toString(), providerKind)
   }
 
   sealed interface FetchResult {
-    data class Saved(val uri: String) : FetchResult
+    /**
+     * [providerKind] names the chain entry whose URL was downloaded.
+     * `null` for the legacy single-service fetch path when it
+     * succeeded via a non-chain code path (none exist today, kept for
+     * forward compatibility).
+     */
+    data class Saved(val uri: String, val providerKind: ProviderKind? = null) : FetchResult
     data object AlreadyPinned : FetchResult
     data object IntentionallyEmpty : FetchResult
     data object NotFound : FetchResult
