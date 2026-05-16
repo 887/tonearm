@@ -13,6 +13,15 @@ data class PlaybackUiState(
    * surface attached one. Used by `NowPlayingScreen` to drive `CoverArt`.
    */
   val mediaStoreAlbumId: Long? = null,
+  /**
+   * Round 3 — domain track id (the same `track.id` we stash in
+   * MediaItem.mediaId). Used by NowPlaying / MiniPlayer to subscribe
+   * to the per-track cover-override Flow so the user's pinned or
+   * bulk-fetched per-song cover wins over the album fallback.
+   * Null when no media is bound or the mediaId can't be parsed as a
+   * Long (legacy MediaItems).
+   */
+  val trackId: Long? = null,
   val isPlaying: Boolean,
   val positionMs: Long,
   val durationMs: Long,
@@ -46,6 +55,7 @@ data class PlaybackUiState(
       artist = "",
       album = "",
       mediaStoreAlbumId = null,
+      trackId = null,
       isPlaying = false,
       positionMs = 0,
       durationMs = 0,

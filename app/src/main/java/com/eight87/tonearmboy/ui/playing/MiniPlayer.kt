@@ -105,6 +105,13 @@ fun MiniPlayer(
    * (0 or 1) via animateTo.
    */
   onSheetDragSettle: () -> Unit = {},
+  /**
+   * Round 3 — per-track cover override URI. When non-null this wins
+   * over [PlaybackUiState.mediaStoreAlbumId]; lets a track-level
+   * pinned or bulk-fetched cover render in the mini-player. Null
+   * keeps the legacy album-art fallback path.
+   */
+  trackCoverUriOverride: String? = null,
 ) {
   if (!state.hasMedia) return
   // G+ — fillMaxSize so the surfaceContainerHigh background fills the
@@ -150,6 +157,7 @@ fun MiniPlayer(
         size = 48.dp,
         mode = albumCoversMode,
         contentDescription = null,
+        coverUriOverride = trackCoverUriOverride,
         modifier = Modifier
           .size(48.dp)
           .clip(RoundedCornerShape(6.dp))

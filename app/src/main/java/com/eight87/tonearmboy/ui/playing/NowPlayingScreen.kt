@@ -131,6 +131,13 @@ fun NowPlayingScreen(
    *  query whether the queue is at its top before deciding whether to
    *  pre-empt drag-down for sheet collapse. */
   nowPlayingListState: LazyListState? = null,
+  /**
+   * Round 3 — per-track cover override URI. When non-null this wins
+   * over the legacy MediaStore album-art path so the now-playing card
+   * shows the song's own cover (track-pinned, or filled in by the
+   * bulk-art worker walking each song's filename).
+   */
+  trackCoverUriOverride: String? = null,
 ) {
   val state by nowPlayingState.state.collectAsStateWithLifecycle()
   val queueSnapshot by nowPlayingState.queue.collectAsStateWithLifecycle()
@@ -233,6 +240,7 @@ fun NowPlayingScreen(
             .fillMaxSize()
             .padding(innerPadding)
             .semantics { testTag = "now_playing_screen" },
+          trackCoverUriOverride = trackCoverUriOverride,
         )
       }
     }
@@ -347,6 +355,8 @@ internal fun NowPlayingMergedSurface(
   onRemoveQueueItem: (Int) -> Unit,
   onMoveQueueItem: (Int, Int) -> Unit,
   modifier: Modifier = Modifier,
+  /** Round 3 — per-track cover override forwarded to the now-playing card. */
+  trackCoverUriOverride: String? = null,
 ) {
   // D.27.4 — measure the surrounding LazyColumn viewport so the queue
   // section can size itself to ≥ one viewport even when the queue has
@@ -407,6 +417,7 @@ internal fun NowPlayingMergedSurface(
           size = 96.dp,
           mode = albumCoversMode,
           contentDescription = state.title.ifEmpty { null },
+          coverUriOverride = trackCoverUriOverride,
           modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)

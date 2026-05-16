@@ -81,6 +81,18 @@ fun TonearmboyApp(
   val backStack = remember { TonearmboyBackStack(LibraryRoot) }
   val playback = graph.playbackUiController
   val playbackState by playback.state.collectAsStateWithLifecycle()
+  // Round 3 — per-track cover-override URI for the active song. Subscribes
+  // to `track_covers` keyed by the playing track id (carried on
+  // PlaybackUiState.trackId); resolves to the Pinned URI when the user
+  // (or the bulk-art worker) has set one. NoChoice / IntentionallyEmpty
+  // fall through to null and the legacy album-art path renders.
+  val activeTrackCoverUri: String? = playbackState.trackId?.let { tid ->
+    val flow = remember(tid) { graph.tracks.trackCoverChoice(tid) }
+    val choice by flow.collectAsStateWithLifecycle(
+      initialValue = com.eight87.tonearmboy.data.AlbumCoverChoice.NoChoice,
+    )
+    (choice as? com.eight87.tonearmboy.data.AlbumCoverChoice.Pinned)?.uri
+  }
   val snackbar = remember { SnackbarHostState() }
   val sectionTitle = remember { mutableStateOf("tonearmboy") }
   val highlightedSettingId = remember { mutableStateOf<String?>(null) }
@@ -439,6 +451,7 @@ fun TonearmboyApp(
                   }
                 },
                 nowPlayingListState = nowPlayingListState,
+                trackCoverUriOverride = activeTrackCoverUri,
               )
             }
 
@@ -466,6 +479,7 @@ fun TonearmboyApp(
                 albumCoversMode = albumCoversMode,
                 onSheetDragDelta = onSheetDragDelta,
                 onSheetDragSettle = onSheetDragSettle,
+                trackCoverUriOverride = activeTrackCoverUri,
               )
             }
           }

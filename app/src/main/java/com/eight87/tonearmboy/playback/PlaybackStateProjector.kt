@@ -62,12 +62,16 @@ internal class PlaybackStateProjector(
     val mediaStoreAlbumId =
       (md?.extras?.getLong(PlaybackUiController.EXTRA_MEDIA_STORE_ALBUM_ID, -1L))
         ?.takeIf { it >= 0 }
+    // Round 3 — mediaId carries the domain track id (set by
+    // `MediaItemFactory` upstream as `track.id.toString()`).
+    val trackId = item?.mediaId?.toLongOrNull()
     _state.value = PlaybackUiState(
       hasMedia = true,
       title = md?.title?.toString().orEmpty(),
       artist = md?.artist?.toString().orEmpty(),
       album = md?.albumTitle?.toString().orEmpty(),
       mediaStoreAlbumId = mediaStoreAlbumId,
+      trackId = trackId,
       isPlaying = ctl.isPlaying,
       positionMs = ctl.currentPosition.coerceAtLeast(0),
       durationMs = ctl.duration.takeIf { it > 0 } ?: 0,
