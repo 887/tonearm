@@ -5,7 +5,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import com.eight87.tonearmboy.data.AlbumCoverChoice
 import com.eight87.tonearmboy.data.AlbumSource
+import com.eight87.tonearmboy.data.TrackSource
 import com.eight87.tonearmboy.data.albumKey
+import com.eight87.tonearmboy.data.model.Track
 import com.eight87.tonearmboy.ui.settings.CoverArtService
 import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
@@ -36,6 +38,7 @@ import kotlin.math.min
  */
 class AlbumArtFetcher(
   private val albumSource: AlbumSource,
+  private val trackSource: TrackSource? = null,
   private val musicBrainz: MusicBrainzClient = MusicBrainzClient(),
   private val iTunes: ITunesClient = ITunesClient(),
 ) {
@@ -170,6 +173,74 @@ class AlbumArtFetcher(
 
     albumSource.setAlbumCoverUri(key, target.toURI().toString())
     return FetchResult.Saved(target.toURI().toString(), providerKind)
+  }
+
+  /**
+   * Round 3 — per-track cover fetch.
+   *
+   * Resolves a cover for [track] via the same provider [chain], using
+   * the track's own filename for the YouTube embedded-ID fast path
+   * (NewPipe stores its 11-char video id in the filename), and pins
+   * the result in `track_covers` via [trackSource] instead of
+   * `album_covers`. The pre-existing per-album path is left alone —
+   * the per-album manual "Search online" flow + user-pinned album
+   * covers still use `fetch(...)`.
+   *
+   * Precedence (mirrors the per-album path):
+   *   - `TrackCoverChoice.Pinned`            → returns [FetchResult.AlreadyPinned]
+   *   - `TrackCoverChoice.IntentionallyEmpty` → returns [FetchResult.IntentionallyEmpty]
+   *   - `TrackCoverChoice.NoChoice`           → resolve + download + pin
+   */
+  suspend fun fetchTrack(
+    context: Context,
+    track: Track,
+    chain: ProviderChain,
+    musicBrainzMinScore: Int = 70,
+    overwriteUserChoice: Boolean = false,
+  ): FetchResult {
+    val sink = trackSource
+      ?: return FetchResult.Failed("fetchTrack called with no TrackSource wired")
+    if (!overwriteUserChoice) {
+      when (sink.trackCoverChoice(track.id).first()) {
+        is AlbumCoverChoice.Pinned -> return FetchResult.AlreadyPinned
+        AlbumCoverChoice.IntentionallyEmpty -> return FetchResult.IntentionallyEmpty
+        AlbumCoverChoice.NoChoice -> Unit
+      }
+    }
+    val key = "track-${track.id}"
+    return AlbumArtFetchRegistry.withFetch(key) {
+      val req = CoverArtRequest(
+        // The album/artist fields feed the Piped-search fallback when
+        // the filename has no embedded YouTube id. Track title isn't
+        // a CoverArtRequest field; we keep the search shape identical
+        // to the album path so each provider's chain hits the same
+        // signatures.
+        albumName = track.album.orEmpty().ifBlank { track.title },
+        albumArtist = track.albumArtist ?: track.artist,
+        sampleTrackPath = track.data,
+        musicBrainzMinScore = musicBrainzMinScore,
+      )
+      val resolved = chain.resolve(req) ?: return@withFetch FetchResult.NotFound
+      val coverUrl = resolved.second
+      val providerKind = resolved.first
+
+      val cacheDir = File(context.cacheDir, "track_art").also { it.mkdirs() }
+      val target = File(cacheDir, "${track.id}.jpg")
+      val request = Request.Builder().url(coverUrl).build()
+      val downloaded = runCatching {
+        downloader.newCall(request).execute().use { resp ->
+          if (!resp.isSuccessful) return@use false
+          val body = resp.body ?: return@use false
+          target.outputStream().use { out -> body.byteStream().copyTo(out) }
+          true
+        }
+      }.getOrDefault(false)
+      if (!downloaded) return@withFetch FetchResult.Failed("download")
+
+      cropToSquareIfNeeded(target)
+      sink.setTrackCoverUri(track.id, target.toURI().toString())
+      FetchResult.Saved(target.toURI().toString(), providerKind)
+    }
   }
 
   /**

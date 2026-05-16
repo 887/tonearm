@@ -24,11 +24,21 @@ object AlbumArtBulkProgress {
   /** Outcome of one album lookup attempt. */
   enum class Outcome { Hit, Miss, Skipped, Error, Running }
 
-  /** One row in the progress log. */
+  /**
+   * One row in the progress log.
+   *
+   * Round 3 — the worker walks tracks (not albums); [trackTitle] names
+   * the in-flight song so the UI can render per-song progress. The
+   * album fields stay populated for context (and for older album-level
+   * skip / error entries fired by the kill-switch / no-providers
+   * branches that pre-date the per-track walk).
+   */
   data class LogEntry(
     val timestampMs: Long,
     val albumName: String,
     val albumArtist: String?,
+    /** Round 3 — song title for the per-track walk; null for non-track entries. */
+    val trackTitle: String? = null,
     /**
      * Which provider produced the [Outcome]. `null` when the entry
      * isn't tied to a single provider (e.g. a `Skipped` entry for an
@@ -40,10 +50,17 @@ object AlbumArtBulkProgress {
     val note: String? = null,
   )
 
-  /** Full log + running counts, mirrored together as a single immutable snapshot. */
+  /**
+   * Full log + running counts, mirrored together as a single immutable
+   * snapshot.
+   *
+   * Round 3 — `totalTracks` / `processed` now count songs, not albums.
+   * The field name is the user-facing unit; the Settings progress
+   * screen renders "Songs processed: X / Y" off these counts.
+   */
   data class BulkLog(
     val entries: List<LogEntry> = emptyList(),
-    val totalAlbums: Int = 0,
+    val totalTracks: Int = 0,
     val processed: Int = 0,
     val hits: Int = 0,
     /** True while a worker is actively writing. */
@@ -54,8 +71,8 @@ object AlbumArtBulkProgress {
   val log: StateFlow<BulkLog> = _log.asStateFlow()
 
   /** Reset the log + counts. Called when the worker starts a fresh pass. */
-  fun reset(totalAlbums: Int) {
-    _log.value = BulkLog(totalAlbums = totalAlbums, running = true)
+  fun reset(totalTracks: Int) {
+    _log.value = BulkLog(totalTracks = totalTracks, running = true)
   }
 
   /** Mark the worker as finished. Keeps existing entries; flips `running`. */

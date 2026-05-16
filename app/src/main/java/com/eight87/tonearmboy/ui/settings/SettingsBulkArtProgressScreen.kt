@@ -112,14 +112,14 @@ fun SettingsBulkArtProgressScreen(
           text = stringResource(
             R.string.settings_bulk_art_progress_counts,
             log.processed,
-            log.totalAlbums,
+            log.totalTracks,
             log.hits,
           ),
           style = MaterialTheme.typography.bodyMedium,
         )
-        if (log.running && log.totalAlbums > 0) {
+        if (log.running && log.totalTracks > 0) {
           LinearProgressIndicator(
-            progress = { (log.processed.toFloat() / log.totalAlbums.toFloat()).coerceIn(0f, 1f) },
+            progress = { (log.processed.toFloat() / log.totalTracks.toFloat()).coerceIn(0f, 1f) },
             modifier = Modifier
               .fillMaxWidth()
               .semantics { testTag = "bulk_art_progress_bar" },
@@ -196,16 +196,30 @@ private fun BulkArtLogRow(entry: AlbumArtBulkProgress.LogEntry) {
       modifier = Modifier.padding(top = 2.dp),
     )
     Column(modifier = Modifier.fillMaxWidth()) {
-      val title = buildString {
-        append(entry.albumName)
-        entry.albumArtist?.takeIf { it.isNotBlank() }?.let { append(" — ").append(it) }
-      }
+      // Round 3 — title line names the song when the worker has one;
+      // album/artist drops to the subtitle. Older entries (kill-switch
+      // skip, no-providers skip) have no trackTitle and fall back to
+      // the album label.
+      val titleLine = entry.trackTitle?.takeIf { it.isNotBlank() }
+        ?: buildString {
+          append(entry.albumName)
+          entry.albumArtist?.takeIf { it.isNotBlank() }?.let { append(" — ").append(it) }
+        }
       Text(
-        text = title,
+        text = titleLine,
         style = MaterialTheme.typography.bodyMedium,
       )
       val noteParts = buildList {
         add(formatTimestamp(entry.timestampMs))
+        // When trackTitle was the headline, fold album/artist into the
+        // subtitle so the row still shows where the song lives.
+        if (entry.trackTitle != null) {
+          val ctx = listOfNotNull(
+            entry.albumArtist?.takeIf { it.isNotBlank() },
+            entry.albumName.takeIf { it.isNotBlank() },
+          ).joinToString(" · ")
+          if (ctx.isNotEmpty()) add(ctx)
+        }
         entry.providerKind?.let { add(AlbumArtBulkWorker.labelFor(it)) }
         entry.note?.let { add(it) }
       }

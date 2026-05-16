@@ -57,7 +57,7 @@ internal val CoverArtEntries: List<SettingsCatalogEntry> = listOf(
   SettingsCatalogEntry(
     id = SettingsCatalog.ID_FILL_MISSING_COVERS,
     label = "Fill in missing covers now",
-    subtitle = "Walk every album missing art through your enabled providers, in order. Open to see live progress and history.",
+    subtitle = "Look up cover art for every song in your library that doesn't have one yet.",
     labelRes = R.string.settings_content_fill_missing_covers_label,
     subtitleRes = R.string.settings_content_fill_missing_covers_subtitle,
     keywords = listOf("cover", "fill", "now", "fetch", "progress", "log"),

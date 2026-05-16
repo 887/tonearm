@@ -5,28 +5,22 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.eight87.tonearmboy.AppGraph
 import com.eight87.tonearmboy.data.AlbumCoverChoice
-import com.eight87.tonearmboy.data.albumKey
 import kotlinx.coroutines.flow.first
 
 /**
  * album-art Phase D — bulk auto-fetch worker.
  *
- * Walks every album in the cached library, asks the
- * [AlbumArtFetcher] to fill in covers for albums with no user choice
- * AND no MediaStore embedded art. Phase A's `IntentionallyEmpty`
- * sentinel is respected — those albums are skipped.
+ * **Round 3 pivot:** the worker now walks **every song in the library**,
+ * not every album. Each track is looked up via its own filename (the
+ * YouTube provider's embedded-ID fast path is per-video) or its title/
+ * artist (Piped-search fallback), so NewPipe-downloaded YouTube tracks —
+ * which all share an arbitrary "Music" album in MediaStore — each get
+ * the correct thumbnail of their own video. Per-album pinning still
+ * trumps everything via [AlbumArtFetcher.fetchTrack]'s precedence check
+ * on the per-track choice row.
  *
- * **Triggering:** the user enables "Auto-discover missing album art"
- * or taps "Fill in missing covers now" in Settings › Cover art. The
- * bridge wires that to `WorkManager.enqueueUniqueWork` with a one-shot
- * [androidx.work.OneTimeWorkRequest].
- *
- * **Visibility (Round 2 / Ask A):** the worker writes every album
- * attempt to [AlbumArtBulkProgress] — a `Running` heartbeat on entry
- * and a terminal `Hit` / `Miss` / `Skipped` / `Error` on exit. The
- * Settings progress sub-page subscribes to that StateFlow so the user
- * watches live progress instead of staring at a silent UI after
- * tapping "Start now".
+ * Triggering, kill-switch semantics, and the [AlbumArtBulkProgress]
+ * sink are unchanged from Round 2.
  */
 class AlbumArtBulkWorker(
   appContext: Context,
@@ -42,7 +36,7 @@ class AlbumArtBulkWorker(
     // requests; provider preferences are preserved for whenever the
     // user flips the kill switch back off.
     if (settings.coverArtDisabled.flow.first()) {
-      AlbumArtBulkProgress.reset(totalAlbums = 0)
+      AlbumArtBulkProgress.reset(totalTracks = 0)
       AlbumArtBulkProgress.append(
         AlbumArtBulkProgress.LogEntry(
           timestampMs = System.currentTimeMillis(),
@@ -59,7 +53,7 @@ class AlbumArtBulkWorker(
 
     val configs = settings.coverArtProviders.flow.first()
     if (configs.none { it.enabled }) {
-      AlbumArtBulkProgress.reset(totalAlbums = 0)
+      AlbumArtBulkProgress.reset(totalTracks = 0)
       AlbumArtBulkProgress.append(
         AlbumArtBulkProgress.LogEntry(
           timestampMs = System.currentTimeMillis(),
@@ -84,59 +78,56 @@ class AlbumArtBulkWorker(
     val chain = ProviderRegistry.buildChain(configs, deps)
 
     val mbMinScore = settings.coverArtMatchScore.flow.first()
-    val fetcher = AlbumArtFetcher(graph.albums)
-    val albums = graph.albums.observeAlbums().first()
+    val fetcher = AlbumArtFetcher(
+      albumSource = graph.albums,
+      trackSource = graph.tracks,
+    )
 
-    // Albums that actually need a lookup — anything with embedded art
-    // or a pre-existing user choice is filtered up-front so the progress
-    // counter mirrors what the user perceives as "in flight".
-    val candidates = albums.filter { it.mediaStoreAlbumId == null }
-
-    AlbumArtBulkProgress.reset(totalAlbums = candidates.size)
+    val tracks = graph.tracks.observeTracks().first()
+    AlbumArtBulkProgress.reset(totalTracks = tracks.size)
 
     try {
-      for (album in candidates) {
+      for (track in tracks) {
         if (isStopped) break
-        val key = albumKey(album.name, album.artist)
-        val choice = graph.albums.albumCoverChoice(key).first()
+
+        val choice = graph.tracks.trackCoverChoice(track.id).first()
         if (choice !is AlbumCoverChoice.NoChoice) {
           AlbumArtBulkProgress.append(
             AlbumArtBulkProgress.LogEntry(
               timestampMs = System.currentTimeMillis(),
-              albumName = album.name,
-              albumArtist = album.artist,
+              albumName = track.album.orEmpty(),
+              albumArtist = track.albumArtist ?: track.artist,
+              trackTitle = track.title,
               providerKind = null,
               outcome = AlbumArtBulkProgress.Outcome.Skipped,
               note = when (choice) {
                 is AlbumCoverChoice.Pinned -> "Already pinned"
                 AlbumCoverChoice.IntentionallyEmpty -> "Marked intentionally empty"
-                else -> "Already has a cover"
+                AlbumCoverChoice.NoChoice -> "Already has a cover"
               },
             ),
           )
           continue
         }
 
-        // Heartbeat: surface the in-flight album so the user sees
-        // *something* happen even when the chain is mid-rate-limit.
+        // Heartbeat — per-song progress so the user sees activity even
+        // when the chain is mid-rate-limit.
         AlbumArtBulkProgress.append(
           AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
-            albumName = album.name,
-            albumArtist = album.artist,
+            albumName = track.album.orEmpty(),
+            albumArtist = track.albumArtist ?: track.artist,
+            trackTitle = track.title,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Running,
             note = "Looking up…",
           ),
         )
 
-        val samplePath = graph.albums.firstTrackPathForAlbum(key)
         val result = try {
-          fetcher.fetch(
+          fetcher.fetchTrack(
             context = applicationContext,
-            albumName = album.name,
-            albumArtist = album.artist,
-            sampleTrackPath = samplePath,
+            track = track,
             chain = chain,
             musicBrainzMinScore = mbMinScore,
           )
@@ -144,8 +135,9 @@ class AlbumArtBulkWorker(
           AlbumArtBulkProgress.append(
             AlbumArtBulkProgress.LogEntry(
               timestampMs = System.currentTimeMillis(),
-              albumName = album.name,
-              albumArtist = album.artist,
+              albumName = track.album.orEmpty(),
+              albumArtist = track.albumArtist ?: track.artist,
+              trackTitle = track.title,
               providerKind = null,
               outcome = AlbumArtBulkProgress.Outcome.Error,
               note = t.message ?: t::class.simpleName,
@@ -157,48 +149,54 @@ class AlbumArtBulkWorker(
         val entry = when (result) {
           is AlbumArtFetcher.FetchResult.Saved -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
-            albumName = album.name,
-            albumArtist = album.artist,
+            albumName = track.album.orEmpty(),
+            albumArtist = track.albumArtist ?: track.artist,
+            trackTitle = track.title,
             providerKind = result.providerKind,
             outcome = AlbumArtBulkProgress.Outcome.Hit,
             note = result.providerKind?.let { "Saved from ${labelFor(it)}" },
           )
           AlbumArtFetcher.FetchResult.NotFound -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
-            albumName = album.name,
-            albumArtist = album.artist,
+            albumName = track.album.orEmpty(),
+            albumArtist = track.albumArtist ?: track.artist,
+            trackTitle = track.title,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Miss,
             note = "No provider returned a match",
           )
           AlbumArtFetcher.FetchResult.ServiceDisabled -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
-            albumName = album.name,
-            albumArtist = album.artist,
+            albumName = track.album.orEmpty(),
+            albumArtist = track.albumArtist ?: track.artist,
+            trackTitle = track.title,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Skipped,
             note = "Service disabled",
           )
           is AlbumArtFetcher.FetchResult.Failed -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
-            albumName = album.name,
-            albumArtist = album.artist,
+            albumName = track.album.orEmpty(),
+            albumArtist = track.albumArtist ?: track.artist,
+            trackTitle = track.title,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Error,
             note = result.reason,
           )
           AlbumArtFetcher.FetchResult.AlreadyPinned -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
-            albumName = album.name,
-            albumArtist = album.artist,
+            albumName = track.album.orEmpty(),
+            albumArtist = track.albumArtist ?: track.artist,
+            trackTitle = track.title,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Skipped,
             note = "Already pinned",
           )
           AlbumArtFetcher.FetchResult.IntentionallyEmpty -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
-            albumName = album.name,
-            albumArtist = album.artist,
+            albumName = track.album.orEmpty(),
+            albumArtist = track.albumArtist ?: track.artist,
+            trackTitle = track.title,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Skipped,
             note = "Marked intentionally empty",
