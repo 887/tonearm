@@ -142,6 +142,7 @@
   <string name="settings_content_cover_art_provider_itunes_desc">Apple\'s public album search. Best for mainstream catalogue.</string>
   <string name="settings_content_cover_art_provider_musicbrainz">MusicBrainz / Cover Art Archive</string>
   <string name="settings_content_cover_art_provider_musicbrainz_desc">Open music database. Skews indie. Rate-limited to 1 request per second.</string>
+  <string name="settings_content_cover_art_musicbrainz_title">MusicBrainz</string>
   <string name="settings_content_scan_folders_for_cover_art_label">Scan folders for cover art</string>
   <string name="settings_content_scan_folders_for_cover_art_subtitle">Pick up cover.jpg / folder.jpg / albumart.jpg files next to album folders during library scan. FilePicker mode only.</string>
   <string name="settings_content_fill_missing_covers_label">Fill in missing covers now</string>

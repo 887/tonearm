@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -74,6 +75,7 @@ fun CoverArtProvidersScreen(
   library: LibrarySettings,
   onBack: () -> Unit,
   onOpenPipedInstances: () -> Unit,
+  onOpenMusicBrainzSettings: () -> Unit,
   snackbarHostState: SnackbarHostState,
 ) {
   val configs by library.coverArtProviders.flow.collectAsState(
@@ -132,7 +134,16 @@ fun CoverArtProvidersScreen(
                 }
                 scope.launch { library.coverArtProviders.set(updated) }
               },
-              onOpenBody = if (config.kind == ProviderKind.YouTube) onOpenPipedInstances else null,
+              onOpenBody = when (config.kind) {
+                ProviderKind.YouTube -> onOpenPipedInstances
+                ProviderKind.MusicBrainz -> onOpenMusicBrainzSettings
+                ProviderKind.ITunes -> null
+              },
+              openBodyLabel = when (config.kind) {
+                ProviderKind.YouTube -> "Piped instances…"
+                ProviderKind.MusicBrainz -> "Match threshold…"
+                ProviderKind.ITunes -> ""
+              },
             )
           }
         }
@@ -148,6 +159,7 @@ private fun ProviderRow(
   dragHandleModifier: Modifier,
   onToggle: (Boolean) -> Unit,
   onOpenBody: (() -> Unit)?,
+  openBodyLabel: String = "",
 ) {
   Surface(
     modifier = Modifier
@@ -195,7 +207,7 @@ private fun ProviderRow(
             onClick = onOpenBody,
             contentPadding = ButtonDefaults.TextButtonContentPadding,
           ) {
-            Text("Piped instances…")
+            Text(openBodyLabel)
           }
         }
       }
@@ -301,6 +313,84 @@ fun PipedInstancesScreen(
         },
       ) {
         Text(stringResource(R.string.settings_content_cover_art_piped_instances_reset))
+      }
+    }
+  }
+}
+
+/**
+ * Cover-art Phase D — MusicBrainz provider sub-page. Hosts the
+ * match-threshold slider that used to live as a top-level Content row.
+ * Sliding writes immediately to DataStore (no Save button); the Reset
+ * action restores the 70 default.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MusicBrainzProviderScreen(
+  library: LibrarySettings,
+  onBack: () -> Unit,
+  snackbarHostState: SnackbarHostState,
+) {
+  val stored by library.coverArtMatchScore.flow.collectAsState(initial = 70)
+  val scope = rememberCoroutineScope()
+  var value by remember(stored) { androidx.compose.runtime.mutableFloatStateOf(stored.toFloat()) }
+
+  Scaffold(
+    snackbarHost = { SnackbarHost(snackbarHostState) },
+    topBar = {
+      TopAppBar(
+        title = { Text(stringResource(R.string.settings_content_cover_art_musicbrainz_title)) },
+        navigationIcon = {
+          IconButton(onClick = onBack) {
+            Icon(
+              Icons.AutoMirrored.Filled.ArrowBack,
+              contentDescription = stringResource(R.string.settings_cd_back),
+            )
+          }
+        },
+      )
+    },
+  ) { innerPadding ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(innerPadding)
+        .padding(16.dp)
+        .semantics { testTag = "musicbrainz_provider_screen" },
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      Text(
+        text = stringResource(R.string.settings_content_cover_art_match_score_label),
+        style = MaterialTheme.typography.titleMedium,
+      )
+      Text(
+        text = "${value.toInt()}",
+        style = MaterialTheme.typography.headlineSmall,
+      )
+      Text(
+        text = stringResource(R.string.settings_content_cover_art_match_score_subtitle),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      Slider(
+        value = value,
+        onValueChange = { value = it },
+        onValueChangeFinished = {
+          scope.launch { library.coverArtMatchScore.set(value.toInt()) }
+        },
+        valueRange = 0f..100f,
+        steps = 99,
+        modifier = Modifier
+          .fillMaxWidth()
+          .semantics { testTag = "mb_match_score_slider" },
+      )
+      TextButton(
+        onClick = {
+          value = 70f
+          scope.launch { library.coverArtMatchScore.set(70) }
+        },
+      ) {
+        Text("Reset to 70")
       }
     }
   }

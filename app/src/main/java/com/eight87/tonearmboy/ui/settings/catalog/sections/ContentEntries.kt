@@ -151,23 +151,6 @@ internal val ContentEntries: List<SettingsCatalogEntry> = listOf(
     destination = SettingsContent,
     breadcrumb = listOf(SECTION_CONTENT, "Album art sources", "Cover art providers"),
   ),
-  // MusicBrainz match-score slider. Only meaningful when service is
-  // MusicBrainz; the row stays visible regardless so the user can
-  // see and tune their threshold without first switching service.
-  SettingsCatalogEntry(
-    id = SettingsCatalog.ID_COVER_ART_MATCH_SCORE,
-    label = "MusicBrainz match threshold",
-    subtitle = "How picky to be about MusicBrainz hits. 100 = perfect match only; 50 = accept fuzzy matches. Default 70. Only used when the service above is MusicBrainz.",
-    labelRes = R.string.settings_content_cover_art_match_score_label,
-    subtitleRes = R.string.settings_content_cover_art_match_score_subtitle,
-    keywords = listOf("cover", "art", "musicbrainz", "score", "threshold", "match", "fuzzy"),
-    icon = Icons.Outlined.Tune,
-    section = Section.Content,
-    group = Groups.AlbumArtSources,
-    kind = RowKind.Picker,
-    destination = SettingsContent,
-    breadcrumb = listOf(SECTION_CONTENT, "Album art sources", "MusicBrainz match threshold"),
-  ),
   // album-art — one-shot "fill missing covers now" action. The
   // Auto-discover toggle persists a preference; this action is
   // explicit "do it once" — same backend worker, but enqueued

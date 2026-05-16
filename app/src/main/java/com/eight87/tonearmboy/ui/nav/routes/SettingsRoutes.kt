@@ -161,6 +161,9 @@ fun com.eight87.tonearmboy.ui.nav.SettingsCoverArtProviders.Register(scope: Rout
       onOpenPipedInstances = {
         backStack.push(com.eight87.tonearmboy.ui.nav.SettingsPipedInstances)
       },
+      onOpenMusicBrainzSettings = {
+        backStack.push(com.eight87.tonearmboy.ui.nav.SettingsMusicBrainzProvider)
+      },
       snackbarHostState = snackbar,
     )
   }
@@ -173,6 +176,20 @@ fun com.eight87.tonearmboy.ui.nav.SettingsPipedInstances.Register(scope: RouteSc
   LaunchedEffect(Unit) { sectionTitle.value = "Piped instances" }
   with(scope) {
     com.eight87.tonearmboy.ui.settings.PipedInstancesScreen(
+      library = graph.settingsRepository,
+      onBack = { backStack.pop() },
+      snackbarHostState = snackbar,
+    )
+  }
+}
+
+/** Cover-art Phase D — MusicBrainz match-threshold slider sub-page. */
+@Composable
+fun com.eight87.tonearmboy.ui.nav.SettingsMusicBrainzProvider.Register(scope: RouteScope) {
+  val sectionTitle = LocalSectionTitle.current
+  LaunchedEffect(Unit) { sectionTitle.value = "MusicBrainz" }
+  with(scope) {
+    com.eight87.tonearmboy.ui.settings.MusicBrainzProviderScreen(
       library = graph.settingsRepository,
       onBack = { backStack.pop() },
       snackbarHostState = snackbar,

@@ -94,6 +94,13 @@ data object SettingsCoverArtProviders : Destination
 data object SettingsPipedInstances : Destination
 
 /**
+ * Cover-art Phase D — MusicBrainz match-threshold slider (MusicBrainz
+ * provider sub-page).
+ */
+@Serializable
+data object SettingsMusicBrainzProvider : Destination
+
+/**
  * D.9d.1 — Music sources sub-page (Settings > Library > Music sources).
  * Hosts the SAF directory picker entry-point and the list of currently
  * configured tree URIs.

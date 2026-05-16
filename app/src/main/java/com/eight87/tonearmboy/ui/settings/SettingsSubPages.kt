@@ -519,9 +519,6 @@ fun SettingsContentScreen(
   val coverArtService by library.coverArtService.flow.collectAsState(
     initial = CoverArtService.Default,
   )
-  val coverArtMatchScore by library.coverArtMatchScore.flow.collectAsState(
-    initial = 70,
-  )
   // Cover-art Phase D — kill switch + active-providers summary for the
   // replacement row.
   val coverArtDisabled by library.coverArtDisabled.flow.collectAsState(initial = false)
@@ -532,7 +529,6 @@ fun SettingsContentScreen(
   // R.F.17 — picker state controllers (Settings-F5).
   val albumCoversPicker = rememberSettingPickerState()
   val coverArtServicePicker = rememberSettingPickerState()
-  var matchScoreDialog by remember { mutableStateOf(false) }
   var separatorsPicker by remember { mutableStateOf(false) }
   val context = LocalContext.current
 
@@ -640,11 +636,6 @@ fun SettingsContentScreen(
       onClick = onOpenCoverArtProviders,
     ),
     SettingsRowBinding.Picker(
-      id = SettingsCatalog.ID_COVER_ART_MATCH_SCORE,
-      currentLabel = "$coverArtMatchScore",
-      onClick = { matchScoreDialog = true },
-    ),
-    SettingsRowBinding.Picker(
       id = SettingsCatalog.ID_ALBUM_COVERS,
       currentLabel = albumCoversLabel(context, albumCoversMode),
       onClick = albumCoversPicker::show,
@@ -689,17 +680,6 @@ fun SettingsContentScreen(
     current = coverArtService,
     onPick = { scope.launch { library.coverArtService.set(it) } },
   )
-
-  if (matchScoreDialog) {
-    MusicBrainzMatchScoreDialog(
-      currentScore = coverArtMatchScore,
-      onConfirm = { newScore ->
-        scope.launch { library.coverArtMatchScore.set(newScore) }
-        matchScoreDialog = false
-      },
-      onDismiss = { matchScoreDialog = false },
-    )
-  }
 
   if (separatorsPicker) {
     MultiSelectPicker(

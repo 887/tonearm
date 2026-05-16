@@ -255,6 +255,7 @@ fun TonearmboyApp(
             entry<SettingsAudio> { it.Register(scope) }
             entry<SettingsCoverArtProviders> { it.Register(scope) }
             entry<SettingsPipedInstances> { it.Register(scope) }
+            entry<SettingsMusicBrainzProvider> { it.Register(scope) }
           },
         )
 
