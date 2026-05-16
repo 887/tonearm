@@ -8,7 +8,9 @@ import com.eight87.tonearmboy.ui.nav.LocalSectionTitle
 import com.eight87.tonearmboy.ui.nav.RouteScope
 import com.eight87.tonearmboy.ui.nav.SettingsAbout
 import com.eight87.tonearmboy.ui.nav.SettingsAudio
+import com.eight87.tonearmboy.ui.nav.SettingsBulkArtProgress
 import com.eight87.tonearmboy.ui.nav.SettingsContent
+import com.eight87.tonearmboy.ui.nav.SettingsCoverArt
 import com.eight87.tonearmboy.ui.nav.SettingsLicenses
 import com.eight87.tonearmboy.ui.nav.SettingsLookAndFeel
 import com.eight87.tonearmboy.ui.nav.SettingsMusicSources
@@ -18,7 +20,9 @@ import com.eight87.tonearmboy.ui.nav.SettingsSearch
 import com.eight87.tonearmboy.ui.settings.AboutScreen
 import com.eight87.tonearmboy.ui.settings.LicensesScreen
 import com.eight87.tonearmboy.ui.settings.SettingsAudioScreen
+import com.eight87.tonearmboy.ui.settings.SettingsBulkArtProgressScreen
 import com.eight87.tonearmboy.ui.settings.SettingsContentScreen
+import com.eight87.tonearmboy.ui.settings.SettingsCoverArtScreen
 import com.eight87.tonearmboy.ui.settings.SettingsLookAndFeelScreen
 import com.eight87.tonearmboy.ui.settings.SettingsPersonalizeScreen
 import com.eight87.tonearmboy.ui.settings.SettingsScreen
@@ -39,6 +43,7 @@ fun SettingsRootDest.Register(scope: RouteScope) {
       onLookAndFeel = { backStack.push(SettingsLookAndFeel) },
       onPersonalize = { backStack.push(SettingsPersonalize) },
       onContent = { backStack.push(SettingsContent) },
+      onCoverArt = { backStack.push(SettingsCoverArt) },
       onAudio = { backStack.push(SettingsAudio) },
       // D.17.3 — open the modal Music sources dialog instead of
       // pushing a sub-page. The dialog state lives at the app
@@ -142,9 +147,44 @@ fun SettingsContent.Register(scope: RouteScope) {
       onComingSoon = onComingSoon,
       snackbarHostState = snackbar,
       onRefreshAlbumArt = onRefreshAlbumArt,
+    )
+  }
+}
+
+/**
+ * Round 2 / Ask B — top-level Cover art sub-page. Hosts the seven
+ * cover-art settings rows (kill switch, providers, fill-now navigator,
+ * auto-fetch toggle, folder scanner toggle, album-covers picker, force-
+ * square toggle).
+ */
+@Composable
+fun SettingsCoverArt.Register(scope: RouteScope) {
+  val sectionTitle = LocalSectionTitle.current
+  LaunchedEffect(Unit) { sectionTitle.value = "Cover art" }
+  with(scope) {
+    SettingsCoverArtScreen(
+      library = graph.settingsRepository,
+      onBack = { backStack.pop() },
       onOpenCoverArtProviders = {
         backStack.push(com.eight87.tonearmboy.ui.nav.SettingsCoverArtProviders)
       },
+      onOpenBulkArtProgress = { backStack.push(SettingsBulkArtProgress) },
+      snackbarHostState = snackbar,
+    )
+  }
+}
+
+/**
+ * Round 2 / Ask A — live progress log for the bulk-art worker.
+ */
+@Composable
+fun SettingsBulkArtProgress.Register(scope: RouteScope) {
+  val sectionTitle = LocalSectionTitle.current
+  LaunchedEffect(Unit) { sectionTitle.value = "Fill in missing covers" }
+  with(scope) {
+    SettingsBulkArtProgressScreen(
+      onBack = { backStack.pop() },
+      snackbarHostState = snackbar,
     )
   }
 }

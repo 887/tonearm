@@ -251,6 +251,8 @@ fun TonearmboyApp(
             entry<SettingsLookAndFeel> { it.Register(scope) }
             entry<SettingsPersonalize> { it.Register(scope) }
             entry<SettingsContent> { it.Register(scope) }
+            entry<SettingsCoverArt> { it.Register(scope) }
+            entry<SettingsBulkArtProgress> { it.Register(scope) }
             entry<SettingsMusicSources> { it.Register(scope) }
             entry<SettingsAudio> { it.Register(scope) }
             entry<SettingsCoverArtProviders> { it.Register(scope) }

@@ -20,6 +20,8 @@
   <string name="settings_lookandfeel_title">Look and Feel</string>
   <string name="settings_personalize_title">Personalize</string>
   <string name="settings_content_title">Content</string>
+  <string name="settings_cover_art_title">Cover art</string>
+  <string name="settings_bulk_art_progress_title">Fill in missing covers</string>
   <string name="settings_audio_title">Audio</string>
   <string name="settings_about_title">About</string>
   <string name="settings_cd_back">Back</string>
@@ -35,7 +37,9 @@
   <string name="settings_root_personalize_label">Personalize</string>
   <string name="settings_root_personalize_subtitle">Library tabs, behaviour, custom actions.</string>
   <string name="settings_root_content_label">Content</string>
-  <string name="settings_root_content_subtitle">Sorting, separators, album covers.</string>
+  <string name="settings_root_content_subtitle">Sorting, separators, tag handling.</string>
+  <string name="settings_root_cover_art_label">Cover art</string>
+  <string name="settings_root_cover_art_subtitle">Providers, kill switch, bulk fill, display mode.</string>
   <string name="settings_root_audio_label">Audio</string>
   <string name="settings_root_audio_subtitle">Playback, volume normalization.</string>
   <string name="settings_root_music_sources_label">Music sources</string>
@@ -146,7 +150,14 @@
   <string name="settings_content_scan_folders_for_cover_art_label">Scan folders for cover art</string>
   <string name="settings_content_scan_folders_for_cover_art_subtitle">Pick up cover.jpg / folder.jpg / albumart.jpg files next to album folders during library scan. FilePicker mode only.</string>
   <string name="settings_content_fill_missing_covers_label">Fill in missing covers now</string>
-  <string name="settings_content_fill_missing_covers_subtitle">Run a one-shot MusicBrainz lookup for every album currently missing art.</string>
+  <string name="settings_content_fill_missing_covers_subtitle">Walk every album missing art through your enabled providers, in order. Open to see live progress and history.</string>
+  <string name="settings_bulk_art_progress_start">Start now</string>
+  <string name="settings_bulk_art_progress_cancel">Cancel</string>
+  <string name="settings_bulk_art_progress_counts">%1$d / %2$d processed · %3$d covers found</string>
+  <string name="settings_bulk_art_progress_idle">Idle. Tap Start now to begin.</string>
+  <string name="settings_bulk_art_progress_running">Running…</string>
+  <string name="settings_bulk_art_progress_done">Finished.</string>
+  <string name="settings_bulk_art_progress_empty">No log entries yet.</string>
   <string name="settings_content_album_covers_label">Album covers</string>
   <string name="settings_content_force_square_covers_label">Force square album covers</string>
   <string name="settings_content_force_square_covers_subtitle">Render covers as squares instead of rounded rectangles.</string>

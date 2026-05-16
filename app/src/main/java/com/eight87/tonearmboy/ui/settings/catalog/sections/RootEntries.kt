@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Photo
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.TouchApp
@@ -16,6 +17,7 @@ import com.eight87.tonearmboy.R
 import com.eight87.tonearmboy.ui.nav.SettingsAbout
 import com.eight87.tonearmboy.ui.nav.SettingsAudio
 import com.eight87.tonearmboy.ui.nav.SettingsContent
+import com.eight87.tonearmboy.ui.nav.SettingsCoverArt
 import com.eight87.tonearmboy.ui.nav.SettingsLookAndFeel
 import com.eight87.tonearmboy.ui.nav.SettingsPersonalize
 import com.eight87.tonearmboy.ui.nav.SettingsRootDest
@@ -85,6 +87,23 @@ internal val RootEntries: List<SettingsCatalogEntry> = listOf(
     kind = RowKind.Navigate,
     destination = SettingsAudio,
     breadcrumb = listOf(SECTION_SETTINGS, SECTION_AUDIO),
+  ),
+  // Round 2 / Ask B — top-level Cover art section, sits between
+  // Behaviour and Library so the kill switch / providers / fill-now
+  // row are one tap from Settings root.
+  SettingsCatalogEntry(
+    id = SettingsCatalog.ID_BEHAVIOUR_COVER_ART,
+    label = SECTION_COVER_ART,
+    subtitle = "Providers, kill switch, bulk fill, display mode.",
+    labelRes = R.string.settings_root_cover_art_label,
+    subtitleRes = R.string.settings_root_cover_art_subtitle,
+    keywords = listOf("cover", "art", "providers", "musicbrainz", "youtube", "itunes", "square", "fill"),
+    icon = Icons.Outlined.Photo,
+    section = Section.Root,
+    group = Groups.Behaviour,
+    kind = RowKind.Navigate,
+    destination = SettingsCoverArt,
+    breadcrumb = listOf(SECTION_SETTINGS, SECTION_COVER_ART),
   ),
   // D.17.3 — Music sources opens a modal dialog (Auxio pattern) instead
   // of a sub-page. Keep the SettingsMusicSources NavKey around as the

@@ -75,6 +75,22 @@ data object SettingsPersonalize : Destination
 @Serializable
 data object SettingsContent : Destination
 
+/**
+ * Round 2 / Ask B — top-level Cover art sub-page. Hosts the kill switch,
+ * providers row, fill-now navigator, auto-fetch toggle, folder scanner
+ * toggle, album-covers mode picker, and force-square toggle.
+ */
+@Serializable
+data object SettingsCoverArt : Destination
+
+/**
+ * Round 2 / Ask A — live progress log for [AlbumArtBulkWorker]. Replaces
+ * the silent enqueue-and-hope behaviour of the old "Fill in missing
+ * covers now" row.
+ */
+@Serializable
+data object SettingsBulkArtProgress : Destination
+
 @Serializable
 data object SettingsAudio : Destination
 

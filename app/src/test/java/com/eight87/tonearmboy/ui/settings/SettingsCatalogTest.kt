@@ -3,6 +3,7 @@ package com.eight87.tonearmboy.ui.settings
 import com.eight87.tonearmboy.ui.nav.SettingsAbout
 import com.eight87.tonearmboy.ui.nav.SettingsAudio
 import com.eight87.tonearmboy.ui.nav.SettingsContent
+import com.eight87.tonearmboy.ui.nav.SettingsCoverArt
 import com.eight87.tonearmboy.ui.nav.SettingsLookAndFeel
 import com.eight87.tonearmboy.ui.nav.SettingsMusicSources
 import com.eight87.tonearmboy.ui.nav.SettingsPersonalize
@@ -41,6 +42,8 @@ class SettingsCatalogTest {
       SettingsCatalog.ID_APPEARANCE_PERSONALIZE,
       SettingsCatalog.ID_BEHAVIOUR_CONTENT,
       SettingsCatalog.ID_BEHAVIOUR_AUDIO,
+      // Round 2 / Ask B — new top-level Cover art section.
+      SettingsCatalog.ID_BEHAVIOUR_COVER_ART,
       SettingsCatalog.ID_LIBRARY_MUSIC_SOURCES,
       SettingsCatalog.ID_LIBRARY_REFRESH,
       SettingsCatalog.ID_LIBRARY_RESCAN,
@@ -52,6 +55,7 @@ class SettingsCatalogTest {
       // legacy ID_COLOR_SCHEME + ID_BLACK_THEME pair.
       SettingsCatalog.ID_BASE_THEME,
       SettingsCatalog.ID_ALBUM_ART_TINT,
+      SettingsCatalog.ID_CUSTOM_CHROME_TINT,
       // Personalize.
       SettingsCatalog.ID_LIBRARY_TABS,
       SettingsCatalog.ID_CUSTOM_PLAYBACK_BAR_ACTION,
@@ -63,12 +67,15 @@ class SettingsCatalogTest {
       SettingsCatalog.ID_MULTI_VALUE_SEPARATORS,
       SettingsCatalog.ID_INTELLIGENT_SORTING,
       SettingsCatalog.ID_HIDE_COLLABORATORS,
+      SettingsCatalog.ID_REFRESH_ALBUM_ART,
+      // Round 2 / Ask B — these 7 IDs now live under Section.CoverArt.
       SettingsCatalog.ID_SCAN_FOLDERS_FOR_COVER_ART,
       SettingsCatalog.ID_AUTO_DISCOVER_ALBUM_ART,
       SettingsCatalog.ID_FILL_MISSING_COVERS,
-      SettingsCatalog.ID_REFRESH_ALBUM_ART,
       SettingsCatalog.ID_ALBUM_COVERS,
       SettingsCatalog.ID_FORCE_SQUARE_COVERS,
+      SettingsCatalog.ID_COVER_ART_DISABLED,
+      SettingsCatalog.ID_COVER_ART_PROVIDERS,
       // Audio.
       SettingsCatalog.ID_PAUSE_ON_REPEAT,
       SettingsCatalog.ID_REPLAYGAIN_STRATEGY,
@@ -111,6 +118,7 @@ class SettingsCatalogTest {
       SettingsLookAndFeel,
       SettingsPersonalize,
       SettingsContent,
+      SettingsCoverArt,
       SettingsAudio,
       SettingsMusicSources,
       SettingsAbout,
@@ -203,6 +211,7 @@ class SettingsCatalogTest {
         SettingsLookAndFeel -> Section.LookAndFeel
         SettingsPersonalize -> Section.Personalize
         SettingsContent -> Section.Content
+        SettingsCoverArt -> Section.CoverArt
         SettingsAudio -> Section.Audio
         // Music sources is its own root-level destination; it's
         // navigable from the Settings root entry of the same id.

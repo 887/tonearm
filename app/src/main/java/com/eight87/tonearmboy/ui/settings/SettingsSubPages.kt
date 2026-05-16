@@ -486,8 +486,6 @@ fun SettingsContentScreen(
   snackbarHostState: SnackbarHostState,
   // album-art — drop Coil's caches; bound to the Refresh album art row.
   onRefreshAlbumArt: () -> Unit = {},
-  // Cover-art Phase D — opens the reorderable provider list sub-page.
-  onOpenCoverArtProviders: () -> Unit = {},
   // R.E.7 — injectable side-effect launchers (Settings-F6).
   autoReload: AutoReloadController = DefaultAutoReloadController,
 ) {
@@ -503,32 +501,8 @@ fun SettingsContentScreen(
   val hideCollaborators by library.hideCollaborators.flow.collectAsState(
     initial = false,
   )
-  val albumCoversMode by library.albumCoversMode.flow.collectAsState(
-    initial = AlbumCoversMode.Default,
-  )
-  val forceSquareCovers by library.forceSquareCovers.flow.collectAsState(
-    initial = false,
-  )
-  val autoDiscoverAlbumArt by library.autoDiscoverAlbumArt.flow.collectAsState(
-    initial = false,
-  )
-  val scanFoldersForCoverArt by library.scanFoldersForCoverArt.flow.collectAsState(
-    initial = true,
-  )
-  @Suppress("DEPRECATION")
-  val coverArtService by library.coverArtService.flow.collectAsState(
-    initial = CoverArtService.Default,
-  )
-  // Cover-art Phase D — kill switch + active-providers summary for the
-  // replacement row.
-  val coverArtDisabled by library.coverArtDisabled.flow.collectAsState(initial = false)
-  val coverArtProviders by library.coverArtProviders.flow.collectAsState(
-    initial = com.eight87.tonearmboy.data.albumart.ProviderListCodec.DEFAULT,
-  )
   val scope = rememberCoroutineScope()
-  // R.F.17 — picker state controllers (Settings-F5).
-  val albumCoversPicker = rememberSettingPickerState()
-  val coverArtServicePicker = rememberSettingPickerState()
+  // Round 2 / Ask B — every cover-art binding moved to SettingsCoverArtScreen.
   var separatorsPicker by remember { mutableStateOf(false) }
   val context = LocalContext.current
 
@@ -559,91 +533,9 @@ fun SettingsContentScreen(
       checked = hideCollaborators,
       onCheckedChange = { scope.launch { library.hideCollaborators.set(it) } },
     ),
-    // album-art Phase B — folder cover-art scanner. Pure DataStore
-    // toggle; the next library rescan honours the value.
-    SettingsRowBinding.Toggle(
-      id = SettingsCatalog.ID_SCAN_FOLDERS_FOR_COVER_ART,
-      checked = scanFoldersForCoverArt,
-      onCheckedChange = { scope.launch { library.scanFoldersForCoverArt.set(it) } },
-    ),
-    // album-art Phase D — toggle the MusicBrainz auto-fetch worker.
-    // Enabling enqueues a one-shot bulk pass (rate-limited 1 req/sec
-    // through MusicBrainzClient); disabling cancels any pending work
-    // but doesn't undo covers already fetched.
-    SettingsRowBinding.Toggle(
-      id = SettingsCatalog.ID_AUTO_DISCOVER_ALBUM_ART,
-      checked = autoDiscoverAlbumArt,
-      onCheckedChange = { value ->
-        scope.launch { library.autoDiscoverAlbumArt.set(value) }
-        if (value) {
-          val req = androidx.work.OneTimeWorkRequestBuilder<
-            com.eight87.tonearmboy.data.albumart.AlbumArtBulkWorker
-          >()
-            .setConstraints(
-              androidx.work.Constraints.Builder()
-                .setRequiredNetworkType(androidx.work.NetworkType.UNMETERED)
-                .build(),
-            )
-            .build()
-          androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
-            com.eight87.tonearmboy.data.albumart.AlbumArtBulkWorker.UNIQUE_WORK_NAME,
-            androidx.work.ExistingWorkPolicy.KEEP,
-            req,
-          )
-        } else {
-          androidx.work.WorkManager.getInstance(context).cancelUniqueWork(
-            com.eight87.tonearmboy.data.albumart.AlbumArtBulkWorker.UNIQUE_WORK_NAME,
-          )
-        }
-      },
-    ),
-    // album-art — explicit one-shot fill action (separate from the
-    // toggle so the user can re-run the worker without round-tripping
-    // through "off → on" on the toggle).
-    SettingsRowBinding.Action(
-      id = SettingsCatalog.ID_FILL_MISSING_COVERS,
-      onClick = {
-        val req = androidx.work.OneTimeWorkRequestBuilder<
-          com.eight87.tonearmboy.data.albumart.AlbumArtBulkWorker
-        >()
-          .setConstraints(
-            androidx.work.Constraints.Builder()
-              .setRequiredNetworkType(androidx.work.NetworkType.UNMETERED)
-              .build(),
-          )
-          .build()
-        androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
-          com.eight87.tonearmboy.data.albumart.AlbumArtBulkWorker.UNIQUE_WORK_NAME,
-          androidx.work.ExistingWorkPolicy.REPLACE,
-          req,
-        )
-      },
-    ),
     SettingsRowBinding.Action(
       id = SettingsCatalog.ID_REFRESH_ALBUM_ART,
       onClick = onRefreshAlbumArt,
-    ),
-    // Cover-art Phase D — privacy kill switch (above the providers row).
-    SettingsRowBinding.Toggle(
-      id = SettingsCatalog.ID_COVER_ART_DISABLED,
-      checked = coverArtDisabled,
-      onCheckedChange = { scope.launch { library.coverArtDisabled.set(it) } },
-    ),
-    // Cover-art Phase D — opens the reorderable list sub-page.
-    SettingsRowBinding.Picker(
-      id = SettingsCatalog.ID_COVER_ART_PROVIDERS,
-      currentLabel = activeProvidersSummary(coverArtProviders, coverArtDisabled),
-      onClick = onOpenCoverArtProviders,
-    ),
-    SettingsRowBinding.Picker(
-      id = SettingsCatalog.ID_ALBUM_COVERS,
-      currentLabel = albumCoversLabel(context, albumCoversMode),
-      onClick = albumCoversPicker::show,
-    ),
-    SettingsRowBinding.Toggle(
-      id = SettingsCatalog.ID_FORCE_SQUARE_COVERS,
-      checked = forceSquareCovers,
-      onCheckedChange = { scope.launch { library.forceSquareCovers.set(it) } },
     ),
   )
 
@@ -660,26 +552,6 @@ fun SettingsContentScreen(
       modifier = mod,
     )
   }
-
-  albumCoversPicker.Render(
-    title = stringResource(R.string.settings_content_album_covers_label),
-    options = AlbumCoversMode.entries,
-    label = { albumCoversLabel(context, it) },
-    current = albumCoversMode,
-    onPick = { scope.launch { library.albumCoversMode.set(it) } },
-  )
-
-  // Phase D — legacy single-service picker still wired so the picker
-  // dialog state (never .show()'d after the row was removed) compiles.
-  // The whole branch is dead code path; remove in Phase F cleanup.
-  @Suppress("DEPRECATION")
-  coverArtServicePicker.Render(
-    title = "Cover art service",
-    options = CoverArtService.entries,
-    label = { coverArtServiceLabel(it) },
-    current = coverArtService,
-    onPick = { scope.launch { library.coverArtService.set(it) } },
-  )
 
   if (separatorsPicker) {
     MultiSelectPicker(

@@ -6,6 +6,7 @@ import androidx.navigation3.runtime.NavKey
 import com.eight87.tonearmboy.R
 import com.eight87.tonearmboy.ui.settings.catalog.sections.AudioEntries
 import com.eight87.tonearmboy.ui.settings.catalog.sections.ContentEntries
+import com.eight87.tonearmboy.ui.settings.catalog.sections.CoverArtEntries
 import com.eight87.tonearmboy.ui.settings.catalog.sections.LookAndFeelEntries
 import com.eight87.tonearmboy.ui.settings.catalog.sections.PersonalizeEntries
 import com.eight87.tonearmboy.ui.settings.catalog.sections.RootEntries
@@ -16,7 +17,7 @@ import com.eight87.tonearmboy.ui.settings.catalog.sections.RootEntries
  * is [Section.Root]; each sub-page is rendered from entries with the
  * matching section value.
  */
-enum class Section { Root, LookAndFeel, Personalize, Content, Audio }
+enum class Section { Root, LookAndFeel, Personalize, CoverArt, Content, Audio }
 
 /**
  * R.F.15 — grouping bucket inside a section. All entries with the same
@@ -135,6 +136,8 @@ object SettingsCatalog {
   const val ID_APPEARANCE_PERSONALIZE = "appearance.personalize"
   const val ID_BEHAVIOUR_CONTENT = "behaviour.content"
   const val ID_BEHAVIOUR_AUDIO = "behaviour.audio"
+  /** Round 2 / Ask B — top-level Cover art section, between Behaviour and Library. */
+  const val ID_BEHAVIOUR_COVER_ART = "behaviour.cover_art"
   const val ID_LIBRARY_MUSIC_SOURCES = "library.music_sources"
   const val ID_LIBRARY_REFRESH = "library.refresh"
   const val ID_LIBRARY_RESCAN = "library.rescan"
@@ -186,6 +189,7 @@ object SettingsCatalog {
     RootEntries +
       LookAndFeelEntries +
       PersonalizeEntries +
+      CoverArtEntries +
       ContentEntries +
       AudioEntries
 
