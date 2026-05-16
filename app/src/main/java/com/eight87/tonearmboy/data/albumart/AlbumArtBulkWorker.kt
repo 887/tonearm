@@ -74,7 +74,14 @@ class AlbumArtBulkWorker(
       .map { it.trim() }
       .filter { it.isNotEmpty() }
       .ifEmpty { PipedClient.DEFAULT_PIPED_INSTANCES }
-    val deps = ProviderRegistry.Deps(piped = PipedClient(instances = pipedInstances))
+    val deps = ProviderRegistry.Deps(
+      piped = PipedClient(instances = pipedInstances),
+      // Round 4 — Android-backed COMMENT-tag reader for the YouTube
+      // provider's second-stage ID lookup. NewPipe writes the source
+      // URL into COMMENT; filename-renamed downloads find their ID
+      // here when stage 1 (filename regex) misses.
+      tagReader = AndroidTrackTagReader(applicationContext),
+    )
     val chain = ProviderRegistry.buildChain(configs, deps)
 
     val mbMinScore = settings.coverArtMatchScore.flow.first()

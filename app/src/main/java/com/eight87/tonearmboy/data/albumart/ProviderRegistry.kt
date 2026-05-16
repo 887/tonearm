@@ -24,6 +24,13 @@ object ProviderRegistry {
     val musicBrainz: MusicBrainzClient = MusicBrainzClient(),
     val iTunes: ITunesClient = ITunesClient(),
     val piped: PipedClient = PipedClient(),
+    /**
+     * Round 4 — optional tag reader used by [YouTubeProvider] to mine
+     * the `COMMENT` (and author-ish) tags for a YouTube URL when the
+     * filename has no embedded ID. Null in tests; bound to
+     * [AndroidTrackTagReader] from the worker / fetch entry points.
+     */
+    val tagReader: TrackTagReader? = null,
   )
 
   fun buildChain(configs: List<ProviderConfig>, deps: Deps = Deps()): ProviderChain {
@@ -34,7 +41,7 @@ object ProviderRegistry {
   }
 
   private fun build(kind: ProviderKind, deps: Deps): CoverArtProvider = when (kind) {
-    ProviderKind.YouTube -> YouTubeProvider(piped = deps.piped)
+    ProviderKind.YouTube -> YouTubeProvider(piped = deps.piped, tagReader = deps.tagReader)
     ProviderKind.MusicBrainz -> MusicBrainzProvider(deps.musicBrainz)
     ProviderKind.ITunes -> ITunesProvider(deps.iTunes)
   }

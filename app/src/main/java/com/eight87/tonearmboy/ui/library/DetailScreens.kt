@@ -202,6 +202,8 @@ fun AlbumDetailScreen(
                     .ifEmpty { com.eight87.tonearmboy.data.albumart.PipedClient.DEFAULT_PIPED_INSTANCES }
                   val deps = com.eight87.tonearmboy.data.albumart.ProviderRegistry.Deps(
                     piped = com.eight87.tonearmboy.data.albumart.PipedClient(instances = pipedInstances),
+                    // Round 4 — same COMMENT-tag fallback as the bulk worker.
+                    tagReader = com.eight87.tonearmboy.data.albumart.AndroidTrackTagReader(context),
                   )
                   val chain = com.eight87.tonearmboy.data.albumart.ProviderRegistry
                     .buildChain(configs, deps)
