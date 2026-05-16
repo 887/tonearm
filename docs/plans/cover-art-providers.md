@@ -1,6 +1,6 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: 🟡 IN PROGRESS (Phases A–G shipped; F deferred; Round 3 / Phase H landing)
+## Status: ✅ DONE (Phases A–H shipped; F deferred per plan)
 
 ## Goal
 
@@ -589,8 +589,9 @@ acceptable redundancy; correctness first.
       processed, 4 covers found, YouTube provider hit the NewPipe-named
       files via filename-id extraction. Screenshot at
       `/tmp/tonearmboy-r3-bulk-log.png`.
-- [ ] **H.8** Release `scripts/build-release-apk.sh --gh-release` so
-      the user can pull via Obtainium.
+- [x] **H.8** Release cut: `v1.0-0acff61` published at
+      https://github.com/887/tonearmboy/releases/tag/v1.0-0acff61
+      (APK sha256 `7ad18b22a76ef745864c3ddab96d71ba039506fb3a104930a782784772074347`).
 
 ## Open questions / decisions
 
