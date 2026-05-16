@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.abs
 
 /**
  * Cover-art Phase B — Piped search client.
@@ -21,6 +22,11 @@ import java.util.concurrent.atomic.AtomicReference
  * Persisted nothing — instance health changes day to day. The pool
  * itself is user-overridable via Settings → Content → Cover art
  * providers → YouTube → Piped instances (Phase D.3).
+ *
+ * Round 4 — search results can be duration-filtered. When the caller
+ * passes [expectedDurationSec], items within ±2 s win over the raw top
+ * hit. If the filter empties the list we fall back to the unfiltered
+ * top result so the no-match case never degrades.
  */
 class PipedClient(
   private val instances: List<String> = DEFAULT_PIPED_INSTANCES,
@@ -31,10 +37,14 @@ class PipedClient(
 
   /**
    * Search Piped for the music-songs track matching [artist] + [title].
-   * Returns the YouTube video ID of the top result, or null when no
-   * instance reachable / no match.
+   * Returns the YouTube video ID of the top result (optionally
+   * duration-filtered), or null when no instance reachable / no match.
    */
-  suspend fun searchVideoId(artist: String?, title: String): String? = withContext(Dispatchers.IO) {
+  suspend fun searchVideoId(
+    artist: String?,
+    title: String,
+    expectedDurationSec: Int? = null,
+  ): String? = withContext(Dispatchers.IO) {
     val q = listOfNotNull(artist?.takeIf { it.isNotBlank() }, title)
       .joinToString(" ")
       .ifBlank { return@withContext null }
@@ -46,7 +56,7 @@ class PipedClient(
     val order = listOfNotNull(lastGood.get()) + instances.filter { it != lastGood.get() }
     for (host in order) {
       val url = "$host/search?q=$encoded&filter=music_songs"
-      val id = runCatching { search(url) }.getOrNull()
+      val id = runCatching { search(url, expectedDurationSec) }.getOrNull()
       if (id != null) {
         lastGood.set(host)
         return@withContext id
@@ -55,7 +65,7 @@ class PipedClient(
     null
   }
 
-  private fun search(url: String): String? {
+  private fun search(url: String, expectedDurationSec: Int?): String? {
     val req = Request.Builder()
       .url(url)
       .header("Accept", "application/json")
@@ -64,10 +74,45 @@ class PipedClient(
       if (!resp.isSuccessful) return null
       val body = resp.body?.string() ?: return null
       val parsed = json.decodeFromString<PipedSearchResponse>(body)
-      val top = parsed.items.firstOrNull { it.type == null || it.type == "stream" }
-        ?: return null
-      return extractVideoId(top.url)
+      val streamItems = parsed.items.filter { it.type == null || it.type == "stream" }
+      if (streamItems.isEmpty()) return null
+
+      val picked = pickByDuration(streamItems, expectedDurationSec)
+      return extractVideoId(picked.url)
     }
+  }
+
+  /**
+   * Round 4 — choose a stream item by duration affinity:
+   *  - If [expectedDurationSec] is null, return the top hit unchanged.
+   *  - If at least one item is within ±2 s, return the first such item.
+   *  - Otherwise return the top hit (no degradation vs old behaviour).
+   *
+   * Logs the outcome at debug for AVD/device verification.
+   */
+  internal fun pickByDuration(items: List<PipedItem>, expectedDurationSec: Int?): PipedItem {
+    if (expectedDurationSec == null) return items.first()
+    val tolerated = items.filter { item ->
+      val d = item.duration ?: return@filter false
+      abs(d - expectedDurationSec) <= DURATION_TOLERANCE_SEC
+    }
+    return if (tolerated.isEmpty()) {
+      logD("piped filter: 0 matches within ±${DURATION_TOLERANCE_SEC}s of ${expectedDurationSec}s — falling back to top hit")
+      items.first()
+    } else {
+      val chosen = tolerated.first()
+      logD("piped filter: ${tolerated.size}/${items.size} matches → ${chosen.url} (dur ${chosen.duration}s, target ${expectedDurationSec}s)")
+      chosen
+    }
+  }
+
+  /**
+   * Log helper that swallows `Method not mocked` from `android.util.Log`
+   * when called from plain JVM tests (PipedClientTest is not Robolectric).
+   * On a real Android process this delegates to `Log.d` as expected.
+   */
+  private fun logD(message: String) {
+    runCatching { android.util.Log.d(TAG, message) }
   }
 
   internal fun extractVideoId(url: String?): String? {
@@ -93,9 +138,18 @@ class PipedClient(
   internal data class PipedItem(
     val url: String? = null,
     val type: String? = null,
+    /**
+     * Round 4 — Piped returns the video duration in whole seconds for
+     * stream items. Nullable because non-stream items omit it (and
+     * defensively for protocol drift).
+     */
+    val duration: Int? = null,
   )
 
   companion object {
+    private const val TAG = "PipedClient"
+    private const val DURATION_TOLERANCE_SEC: Int = 2
+
     /** Starter pool. Walked in order; first reachable wins. */
     val DEFAULT_PIPED_INSTANCES: List<String> = listOf(
       "https://pipedapi.kavin.rocks",

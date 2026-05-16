@@ -44,6 +44,15 @@ data class CoverArtRequest(
   val albumArtist: String?,
   val sampleTrackPath: String?,
   val musicBrainzMinScore: Int = 70,
+  /**
+   * Round 4 — expected track duration in whole seconds, when known.
+   * Piped's `/search` results include a `duration` field; when this is
+   * supplied the search client filters to results within ±2 s, then
+   * falls back to the unfiltered top result if filtering empties the
+   * list. Null when the caller doesn't know (album-level fetches,
+   * legacy single-service path).
+   */
+  val expectedDurationSec: Int? = null,
 )
 
 /**

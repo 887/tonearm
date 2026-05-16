@@ -61,7 +61,7 @@ class YouTubeProvider(
     // Stage 3 — Piped search. The Round 4 duration filter lives in
     // [PipedClient.searchVideoId]; this provider passes whatever
     // duration the request carries (null is fine — filter is skipped).
-    return piped.searchVideoId(req.albumArtist, req.albumName)
+    return piped.searchVideoId(req.albumArtist, req.albumName, req.expectedDurationSec)
   }
 
   /**

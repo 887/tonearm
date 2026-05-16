@@ -219,6 +219,9 @@ class AlbumArtFetcher(
         albumArtist = track.albumArtist ?: track.artist,
         sampleTrackPath = track.data,
         musicBrainzMinScore = musicBrainzMinScore,
+        // Round 4 — duration affinity for Piped search. Zero / negative
+        // values mean "unknown" → null so the filter is skipped.
+        expectedDurationSec = (track.durationMs / 1000).toInt().takeIf { it > 0 },
       )
       val resolved = chain.resolve(req) ?: return@withFetch FetchResult.NotFound
       val coverUrl = resolved.second
