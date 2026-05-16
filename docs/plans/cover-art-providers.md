@@ -659,7 +659,9 @@ markers instead — container-agnostic, MIT-clean, no new deps.
       `Comment Tagged Test · YouTube · Saved from YouTube` — the
       COMMENT-tag byte-scan path delivered the cover when filename
       gave nothing. Screenshot `/tmp/tonearmboy-r4-bulk.png`.
-- [ ] **I.9** Release cut: `scripts/build-release-apk.sh --gh-release`.
+- [x] **I.9** Release cut: `v1.0-aebc674` published at
+      https://github.com/887/tonearmboy/releases/tag/v1.0-aebc674
+      (APK sha256 `c464bc0c65018f88d9e89d35eb97edc53c24f61a08fc83cf0891b546c0787a12`).
 
 ## Open questions / decisions
 
