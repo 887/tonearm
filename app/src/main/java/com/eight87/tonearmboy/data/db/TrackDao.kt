@@ -36,6 +36,23 @@ interface TrackDao {
   @Query("SELECT * FROM tracks WHERE id IN (:ids)")
   suspend fun getByIds(ids: List<Long>): List<TrackEntity>
 
+  /**
+   * Cover-art Phase C.5 — first track on disk for the given
+   * (album, albumArtist) key. Used by [AlbumArtFetcher] to feed the
+   * YouTube provider a representative filename for the embedded-ID
+   * fast path. `ORDER BY trackNumber ASC, id ASC LIMIT 1` makes the
+   * choice deterministic across rescans.
+   */
+  @Query(
+    """
+    SELECT * FROM tracks
+    WHERE album = :album AND IFNULL(albumArtist, artist) IS :artist
+    ORDER BY IFNULL(trackNumber, 9999) ASC, id ASC
+    LIMIT 1
+    """
+  )
+  suspend fun firstByAlbum(album: String, artist: String?): TrackEntity?
+
   @Upsert
   suspend fun upsert(tracks: List<TrackEntity>)
 

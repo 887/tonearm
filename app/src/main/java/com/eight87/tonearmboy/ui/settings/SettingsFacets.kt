@@ -67,8 +67,37 @@ interface LibrarySettings {
   val autoDiscoverAlbumArt: Setting<Boolean>
   /** album-art Phase B — toggle the SAF folder cover-art scanner during library scan. Default OFF as of 2026-05; lazy per-display lookup is the better pattern. */
   val scanFoldersForCoverArt: Setting<Boolean>
-  /** Online cover-art lookup service — `Disabled` (default), `MusicBrainz`, or `iTunes`. Opt-in. */
+  /**
+   * Deprecated single-service picker — replaced by [coverArtProviders]
+   * (Phase C). Kept for one release so in-flight callers compile; the
+   * `firstLaunchInitialise` migration seeds the new list from this
+   * value's stored content.
+   */
+  @Deprecated("Use coverArtProviders", ReplaceWith("coverArtProviders"))
   val coverArtService: Setting<CoverArtService>
+
+  /**
+   * Cover-art Phase C — user-prioritised provider chain. Encoded as
+   * `"<Kind>:on|off,..."` in priority order; decoded into a
+   * canonical list where every [com.eight87.tonearmboy.data.albumart.ProviderKind]
+   * appears exactly once. See [com.eight87.tonearmboy.data.albumart.ProviderListCodec].
+   */
+  val coverArtProviders: Setting<List<com.eight87.tonearmboy.data.albumart.ProviderConfig>>
+
+  /**
+   * Cover-art Phase C — privacy kill switch. When `true` the chain is
+   * bypassed entirely (bulk worker no-ops, manual lookups return
+   * `ServiceDisabled`); when `false` (default) the active providers in
+   * [coverArtProviders] are walked.
+   */
+  val coverArtDisabled: Setting<Boolean>
+
+  /**
+   * Cover-art Phase D — comma-separated list of Piped instance base
+   * URLs. Empty / blank → fall back to
+   * [com.eight87.tonearmboy.data.albumart.PipedClient.DEFAULT_PIPED_INSTANCES].
+   */
+  val pipedInstances: Setting<String>
   /**
    * Minimum match score (0–100) for accepting a MusicBrainz release
    * search hit as the right album. Default 70 — strict enough to

@@ -29,6 +29,7 @@ class SquareCropTest {
     override suspend fun setAlbumCoverUri(albumKey: String, uri: String) = Unit
     override suspend fun clearAlbumCoverIntentional(albumKey: String) = Unit
     override suspend fun resetAlbumCover(albumKey: String) = Unit
+    override suspend fun firstTrackPathForAlbum(albumKey: String): String? = null
   }
 
   @Test

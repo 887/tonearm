@@ -32,6 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -125,6 +127,12 @@ fun AlbumDetailScreen(
   val context = LocalContext.current
   val coverScope = rememberCoroutineScope()
   var coverMenuOpen by remember { mutableStateOf(false) }
+  // Cover-art Phase E.3 — snackbar names which provider hit so the
+  // user can tell which slot in their priority list is pulling weight.
+  val snackbarHostState = remember { SnackbarHostState() }
+  val loadedFromTemplate = stringResource(R.string.library_album_cover_loaded_from)
+  val notFoundMsg = stringResource(R.string.library_album_cover_not_found)
+  val chainDisabledMsg = stringResource(R.string.library_album_cover_chain_disabled)
   val pickCoverLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.OpenDocument(),
   ) { uri ->
@@ -144,6 +152,7 @@ fun AlbumDetailScreen(
   }
 
   Scaffold(
+    snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     topBar = {
       TopAppBar(
         title = { Text(albumName) },
@@ -181,17 +190,44 @@ fun AlbumDetailScreen(
                 coverScope.launch {
                   val settings = com.eight87.tonearmboy.AppGraph
                     .get(context.applicationContext).settingsRepository
-                  val service = settings.coverArtService.flow.first()
+                  if (settings.coverArtDisabled.flow.first()) {
+                    snackbarHostState.showSnackbar(chainDisabledMsg)
+                    return@launch
+                  }
+                  val configs = settings.coverArtProviders.flow.first()
                   val mbScore = settings.coverArtMatchScore.flow.first()
+                  val pipedRaw = settings.pipedInstances.flow.first()
+                  val pipedInstances = pipedRaw.split(',').map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .ifEmpty { com.eight87.tonearmboy.data.albumart.PipedClient.DEFAULT_PIPED_INSTANCES }
+                  val deps = com.eight87.tonearmboy.data.albumart.ProviderRegistry.Deps(
+                    piped = com.eight87.tonearmboy.data.albumart.PipedClient(instances = pipedInstances),
+                  )
+                  val chain = com.eight87.tonearmboy.data.albumart.ProviderRegistry
+                    .buildChain(configs, deps)
+                  val samplePath = albumSource.firstTrackPathForAlbum(coverChoiceKey)
                   val fetcher = com.eight87.tonearmboy.data.albumart.AlbumArtFetcher(albumSource)
-                  fetcher.fetch(
+                  val result = fetcher.fetch(
                     context = context,
                     albumName = albumName,
                     albumArtist = albumArtist,
-                    service = service,
+                    sampleTrackPath = samplePath,
+                    chain = chain,
                     musicBrainzMinScore = mbScore,
                     overwriteUserChoice = true,
                   )
+                  val msg = when (result) {
+                    is com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.Saved ->
+                      loadedFromTemplate.format(
+                        result.providerKind?.name ?: "Unknown",
+                      )
+                    com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.NotFound -> notFoundMsg
+                    com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.ServiceDisabled -> chainDisabledMsg
+                    is com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.Failed -> notFoundMsg
+                    com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.AlreadyPinned,
+                    com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.IntentionallyEmpty -> null
+                  }
+                  if (msg != null) snackbarHostState.showSnackbar(msg)
                 }
               },
             )

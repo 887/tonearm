@@ -345,6 +345,19 @@ class LibraryRepository(
     db.albumCoverDao().delete(albumKey)
   }
 
+  /**
+   * Cover-art Phase C.5 — looks up the album by [albumKey] in the
+   * cached album rollup, then asks the track DAO for the lowest-track
+   * file path. Returns null when the album isn't known or has no
+   * tracks.
+   */
+  override suspend fun firstTrackPathForAlbum(albumKey: String): String? {
+    val target = albumKey
+    val albums = db.albumDao().observeAlbumsWithCounts().first()
+    val album = albums.firstOrNull { albumKey(it.name, it.artist) == target } ?: return null
+    return db.trackDao().firstByAlbum(album.name, album.artist)?.data
+  }
+
   // R1 — per-track cover overrides. Identical tri-state semantics to
   // album_covers; keyed by trackId so a future track-rename / re-import
   // can invalidate as part of the rescan if the id is recycled.

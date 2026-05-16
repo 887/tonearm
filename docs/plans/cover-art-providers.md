@@ -349,7 +349,7 @@ default.
 - [x] **A.5** Robolectric tests: `ProviderChainTest` covers ordering, skip-on-null,
       skip-on-throw, all-null-returns-null, empty-chain.
 
-### Phase B — YouTube provider
+### Phase B — YouTube provider — shipped in 8575ae0
 
 - [x] **B.1** `YouTubeProvider` class with filename-pattern ID extraction
       (`YouTubeIdExtractor`); thumbnail URL ladder `maxres → sd → hq`
@@ -382,26 +382,31 @@ default.
 
 ### Phase C — Multi-provider data model
 
-- [ ] **C.1** `ProviderKind` enum + `ProviderConfig(kind, enabled)` data class
-      + `ProviderListCodec.encode/decode` round-trip; canonicalise (every
-      known kind appears exactly once, unknown kinds dropped).
-- [ ] **C.2** Add `coverArtProviders: Setting<List<ProviderConfig>>` to
-      `PlaybackSettings` facet and `SettingsRepository`. Mark `coverArtService`
-      `@Deprecated("use coverArtProviders")` with no migration warning yet —
-      callers updated in C.4.
-- [ ] **C.3** `ProviderRegistry.buildChain(configs, deps): ProviderChain`
-      constructs concrete providers from kinds + shared deps (OkHttp, MB
-      score, Piped instance list).
-- [ ] **C.4** Update `AlbumArtFetcher.fetch(...)` to take `List<ProviderConfig>`
-      instead of `CoverArtService` (plus the deprecated single-service
-      overload for one release). Update `AlbumArtBulkWorker` and the
-      `DetailScreens.kt` per-album fetch call sites.
-- [ ] **C.5** Add `firstTrackPathForAlbum(albumKey): String?` to `AlbumSource`,
-      implement in `LibraryRepository` via a new `TrackDao.firstByAlbumKey`
-      query. Thread through bulk worker + DetailScreens caller.
-- [ ] **C.6** Unit tests for `ProviderListCodec` (round-trip, canonical fill,
-      malformed string handling), `ProviderRegistry`, end-to-end fetcher with
-      a fake chain.
+- [x] **C.1** `ProviderConfig(kind, enabled)` + `ProviderListCodec` with
+      encode/decode round-trip, canonical fill, malformed-token drop,
+      duplicate collapse. `ProviderKind` enum lives in
+      `CoverArtProvider.kt` (Phase A).
+- [x] **C.2** `coverArtProviders` Setting on `LibrarySettings` facet (the
+      existing owner of cover-art settings — plan said `PlaybackSettings`
+      but that facet doesn't own cover-art today; following the code).
+      Also added `coverArtDisabled` (kill switch) + `pipedInstances`.
+      Legacy `coverArtService` marked `@Deprecated("Use coverArtProviders")`.
+- [x] **C.3** `ProviderRegistry.buildChain(configs, deps)` constructs
+      concrete providers from kinds + shared `Deps` bag (MB, iTunes,
+      Piped clients).
+- [x] **C.4** New `AlbumArtFetcher.fetch(...)` overload takes
+      `sampleTrackPath` + `ProviderChain`. Legacy single-service
+      overload preserved. `AlbumArtBulkWorker` and `DetailScreens`
+      manual-search both wired to the chain path with kill-switch
+      honoured and per-album sample-path threaded through.
+- [x] **C.5** `firstTrackPathForAlbum(albumKey): String?` added to
+      `AlbumSource`; implemented in `LibraryRepository` via
+      `TrackDao.firstByAlbum(album, artist)` after looking up the
+      album by its derived key in the cached album rollup.
+- [x] **C.6** `ProviderListCodecTest` (7 cases: round-trip, canonical fill,
+      null/blank, malformed, duplicates, DEFAULT shape),
+      `ProviderRegistryTest` (chain construction, all-off → empty),
+      `MigrationTest` (fresh install, each legacy value, idempotence).
 
 ### Phase D — Settings UI
 

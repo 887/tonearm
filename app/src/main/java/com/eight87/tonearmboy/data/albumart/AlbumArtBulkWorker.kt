@@ -36,15 +36,27 @@ class AlbumArtBulkWorker(
 
   override suspend fun doWork(): Result {
     val graph = AppGraph.get(applicationContext)
-    // Honour the user's cover-art-service choice. When `Disabled`
-    // the bulk worker exits immediately with no web requests — the
-    // setting is the single switch that gates every cover-art
-    // round-trip.
-    val service = graph.settingsRepository.coverArtService.flow.first()
-    if (service == com.eight87.tonearmboy.ui.settings.CoverArtService.Disabled) {
-      return Result.success()
-    }
-    val mbMinScore = graph.settingsRepository.coverArtMatchScore.flow.first()
+    val settings = graph.settingsRepository
+
+    // Cover-art Phase E.2 — privacy kill switch is the single
+    // early-exit gate. When enabled the worker fires zero web
+    // requests; provider preferences are preserved for whenever the
+    // user flips the kill switch back off.
+    if (settings.coverArtDisabled.flow.first()) return Result.success()
+
+    val configs = settings.coverArtProviders.flow.first()
+    if (configs.none { it.enabled }) return Result.success()
+
+    val pipedInstancesRaw = settings.pipedInstances.flow.first()
+    val pipedInstances = pipedInstancesRaw
+      .split(',')
+      .map { it.trim() }
+      .filter { it.isNotEmpty() }
+      .ifEmpty { PipedClient.DEFAULT_PIPED_INSTANCES }
+    val deps = ProviderRegistry.Deps(piped = PipedClient(instances = pipedInstances))
+    val chain = ProviderRegistry.buildChain(configs, deps)
+
+    val mbMinScore = settings.coverArtMatchScore.flow.first()
     val fetcher = AlbumArtFetcher(graph.albums)
     val albums = graph.albums.observeAlbums().first()
 
@@ -63,11 +75,13 @@ class AlbumArtBulkWorker(
         skipped++
         continue
       }
+      val samplePath = graph.albums.firstTrackPathForAlbum(key)
       val result = fetcher.fetch(
-        applicationContext,
-        album.name,
-        album.artist,
-        service,
+        context = applicationContext,
+        albumName = album.name,
+        albumArtist = album.artist,
+        sampleTrackPath = samplePath,
+        chain = chain,
         musicBrainzMinScore = mbMinScore,
       )
       when (result) {

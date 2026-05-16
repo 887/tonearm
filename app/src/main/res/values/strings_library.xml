@@ -40,7 +40,11 @@
   <!-- Album cover override menu (album-art Phase A). -->
   <string name="library_album_cover_menu_cd">Album cover options</string>
   <string name="library_album_cover_replace">Replace cover…</string>
-  <string name="library_album_cover_search">Search MusicBrainz for cover</string>
+  <string name="library_album_cover_search">Search online for cover</string>
+  <!-- Cover-art Phase E.3 — snackbar copy after a manual chain lookup. %1$s is the provider name (YouTube / iTunes / MusicBrainz). -->
+  <string name="library_album_cover_loaded_from">Cover loaded from %1$s</string>
+  <string name="library_album_cover_not_found">No cover found by any provider</string>
+  <string name="library_album_cover_chain_disabled">Cover-art lookup is turned off in Settings</string>
   <string name="library_album_cover_clear">Set to no cover</string>
   <string name="library_album_cover_reset">Reset to default cover</string>
 

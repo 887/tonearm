@@ -502,8 +502,37 @@ class SettingsRepository(private val context: Context) :
   // art unless the user explicitly opts in via this picker. Privacy
   // story: when Disabled, both the bulk auto-fetch worker and the
   // per-album "Search online" overflow are inert.
+  @Suppress("DEPRECATION")
   override val coverArtService: Setting<CoverArtService> = EnumSetting(
     store, KEY_COVER_ART_SERVICE, CoverArtService.Companion::fromStored,
+  )
+
+  // Cover-art Phase C — user-prioritised provider chain. Default is
+  // canonical (all providers ON, YouTube first); the firstLaunch
+  // migration seeds it from the legacy single-service setting when
+  // present so upgrading users keep their explicit privacy choice.
+  override val coverArtProviders: Setting<List<com.eight87.tonearmboy.data.albumart.ProviderConfig>> =
+    PreferencesSetting(
+      store, KEY_COVER_ART_PROVIDERS,
+      read = { com.eight87.tonearmboy.data.albumart.ProviderListCodec.decode(it) },
+      write = { com.eight87.tonearmboy.data.albumart.ProviderListCodec.encode(it) },
+    )
+
+  // Cover-art Phase C — privacy kill switch. Default false (chain
+  // active) so the user's directive ("get me cover art that works")
+  // is honoured on a fresh install; flipping this to true bypasses
+  // every network round-trip without losing the user's per-provider
+  // priority configuration.
+  override val coverArtDisabled: Setting<Boolean> = booleanSetting(
+    store, KEY_COVER_ART_DISABLED, false,
+  )
+
+  // Cover-art Phase D — comma-separated Piped instances. Empty falls
+  // back to PipedClient.DEFAULT_PIPED_INSTANCES.
+  override val pipedInstances: Setting<String> = PreferencesSetting(
+    store, KEY_PIPED_INSTANCES,
+    read = { it.orEmpty() },
+    write = { it },
   )
 
   // Default 70: loose enough to accept typical tag-vs-canonical drift
@@ -707,6 +736,49 @@ class SettingsRepository(private val context: Context) :
       if (prefs[KEY_MUSIC_SOURCE_MODE] == null) {
         prefs[KEY_MUSIC_SOURCE_MODE] = MusicSourceMode.Default.name
       }
+      // Cover-art Phase E.1 — seed the provider chain from the legacy
+      // single-service value on upgrade. Brand-new installs get the
+      // canonical default (YouTube → iTunes → MusicBrainz, all on).
+      if (prefs[KEY_COVER_ART_PROVIDERS] == null) {
+        val legacy = CoverArtService.fromStored(prefs[KEY_COVER_ART_SERVICE])
+        val seeded = when (legacy) {
+          // Disabled-on-upgrade preserves the user's privacy choice —
+          // we leave every provider OFF and let them flip the kill
+          // switch / re-enable individually. (Fresh installs hit a
+          // different branch: KEY_COVER_ART_SERVICE is also absent so
+          // `fromStored` returns Disabled, but the codec default
+          // populated below is all-on.)
+          CoverArtService.Disabled -> if (prefs[KEY_COVER_ART_SERVICE] == null) {
+            com.eight87.tonearmboy.data.albumart.ProviderListCodec.DEFAULT
+          } else {
+            listOf(
+              com.eight87.tonearmboy.data.albumart.ProviderConfig(
+                com.eight87.tonearmboy.data.albumart.ProviderKind.YouTube, false),
+              com.eight87.tonearmboy.data.albumart.ProviderConfig(
+                com.eight87.tonearmboy.data.albumart.ProviderKind.ITunes, false),
+              com.eight87.tonearmboy.data.albumart.ProviderConfig(
+                com.eight87.tonearmboy.data.albumart.ProviderKind.MusicBrainz, false),
+            )
+          }
+          CoverArtService.MusicBrainz -> listOf(
+            com.eight87.tonearmboy.data.albumart.ProviderConfig(
+              com.eight87.tonearmboy.data.albumart.ProviderKind.MusicBrainz, true),
+            com.eight87.tonearmboy.data.albumart.ProviderConfig(
+              com.eight87.tonearmboy.data.albumart.ProviderKind.YouTube, false),
+            com.eight87.tonearmboy.data.albumart.ProviderConfig(
+              com.eight87.tonearmboy.data.albumart.ProviderKind.ITunes, false),
+          )
+          CoverArtService.ITunes -> listOf(
+            com.eight87.tonearmboy.data.albumart.ProviderConfig(
+              com.eight87.tonearmboy.data.albumart.ProviderKind.ITunes, true),
+            com.eight87.tonearmboy.data.albumart.ProviderConfig(
+              com.eight87.tonearmboy.data.albumart.ProviderKind.YouTube, false),
+            com.eight87.tonearmboy.data.albumart.ProviderConfig(
+              com.eight87.tonearmboy.data.albumart.ProviderKind.MusicBrainz, false),
+          )
+        }
+        prefs[KEY_COVER_ART_PROVIDERS] = com.eight87.tonearmboy.data.albumart.ProviderListCodec.encode(seeded)
+      }
     }
   }
 
@@ -744,6 +816,12 @@ class SettingsRepository(private val context: Context) :
     internal val KEY_SCAN_CONFIG_HASH = stringPreferencesKey("scan_cache_config_hash")
     internal val KEY_COVER_ART_SERVICE = stringPreferencesKey("cover_art_service")
     internal val KEY_COVER_ART_MATCH_SCORE = androidx.datastore.preferences.core.intPreferencesKey("cover_art_match_score")
+    // Cover-art Phase C — multi-provider chain (encoded by ProviderListCodec).
+    internal val KEY_COVER_ART_PROVIDERS = stringPreferencesKey("cover_art_providers")
+    // Cover-art Phase C — privacy kill switch.
+    internal val KEY_COVER_ART_DISABLED = booleanPreferencesKey("cover_art_disabled")
+    // Cover-art Phase D — user-overridable Piped instance list.
+    internal val KEY_PIPED_INSTANCES = stringPreferencesKey("piped_instances")
 
     /** D.9b.2 — pre-amp slider bounds, fixed at [-15, +15] dB. */
     const val REPLAYGAIN_PREAMP_MIN_DB: Float = -15f
