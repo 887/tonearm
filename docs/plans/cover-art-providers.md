@@ -1,6 +1,6 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: ✅ DONE (Phases A–H shipped; F deferred per plan)
+## Status: ✅ DONE (Phases A–I shipped; F deferred per plan)
 
 ## Goal
 
@@ -592,6 +592,74 @@ acceptable redundancy; correctness first.
 - [x] **H.8** Release cut: `v1.0-0acff61` published at
       https://github.com/887/tonearmboy/releases/tag/v1.0-0acff61
       (APK sha256 `7ad18b22a76ef745864c3ddab96d71ba039506fb3a104930a782784772074347`).
+
+### Phase I — Round 4: COMMENT-tag mining + duration-filtered Piped search
+
+User feedback after Round 3: the per-track worker works great when the
+filename carries the canonical NewPipe `<title>-<11-char>.<ext>` shape,
+but the user's actual library is mostly *renamed* downloads — the
+filename gave nothing and the Piped-search fallback picked a wrong
+upload often enough to make per-track results worse than per-album in
+some cases. Two coupled fixes shipped together (two commits, then a
+plan-tick commit), addressing both halves of the miss.
+
+**Platform deviation — no `METADATA_KEY_COMMENT`.** The original Round 4
+brief assumed Android's `MediaMetadataRetriever.METADATA_KEY_COMMENT`
+exposed the ID3v2 `COMM` / Ogg `COMMENT` / M4A `\xa9cmt` tag NewPipe
+writes. The constant doesn't exist in the public SDK (verified on
+API 36 `android.jar` — only `AUTHOR`, `ALBUMARTIST`, `WRITER`,
+`COMPOSER`, etc. are surfaced). LGPL jaudiotagger remains vetoed.
+The shipped solution scans the raw file bytes for ASCII YouTube URL
+markers instead — container-agnostic, MIT-clean, no new deps.
+
+- [x] **I.1** `YouTubeCommentExtractor` (pure-regex object): two-pass
+      ID extraction over free-form text. URL-context patterns
+      (`youtube.com/watch?v=…`, `youtu.be/…`, `youtube.com/embed/…`,
+      `youtube.com/shorts/…`, multi-subdomain) win over a bare
+      boundary-anchored 11-char fallback. Shipped in commit fe821bf.
+- [x] **I.2** `TrackTagReader` interface + `AndroidTrackTagReader`
+      byte-scanner. Sweeps first 256 KB + last 128 KB of the file for
+      the ASCII URL markers, captures the surrounding URL-safe-char
+      window, hands off to [I.1]. Companion-scoped scan function so
+      JVM tests don't need Robolectric or a real Context. Shipped in
+      commit fe821bf.
+- [x] **I.3** `YouTubeProvider` resolution chain extended: filename →
+      tag-byte-scan → Piped (was filename → Piped). The tag stage is
+      a no-op when no reader is wired (kept null in tests that only
+      exercise the legacy paths). Shipped in commit fe821bf.
+- [x] **I.4** `ProviderRegistry.Deps.tagReader` field; both call sites
+      (`AlbumArtBulkWorker`, `DetailScreens.kt` per-album manual
+      "Search online") construct an `AndroidTrackTagReader` and pass
+      it through. Shipped in commit fe821bf.
+- [x] **I.5** `CoverArtRequest.expectedDurationSec: Int?` field;
+      `PipedClient.searchVideoId` accepts a third `expectedDurationSec`
+      argument. When non-null, stream items are filtered to those
+      within ±2 s; the first match wins. Empty filter result falls
+      back to the unfiltered top hit so the no-match case never
+      degrades. `PipedItem` gains a `duration` field. Duration is
+      derived from `track.durationMs` in `fetchTrack`. Shipped in
+      commit f622fca.
+- [x] **I.6** Logging — `PipedClient` emits a debug line summarising
+      the filter outcome (`piped filter: N matches → URL (dur Xs)`)
+      via a logger that swallows `android.util.Log` stubs from plain
+      JVM tests. Shipped in commit f622fca.
+- [x] **I.7** Unit tests: `YouTubeCommentExtractorTest` (12 cases —
+      URL shapes, multi-domain, URL-context wins-over-bare,
+      false-positive bait inside base64 blobs), `AndroidTrackTagReaderTest`
+      (5 cases — byte scan finds each URL flavour, returns null on
+      no-marker buffer, pipeline integration with the extractor),
+      `PipedClientDurationFilterTest` (4 cases — match, fallback,
+      ±2 s tolerance window, null passthrough). Shipped across
+      fe821bf + f622fca.
+- [x] **I.8** AVD verification on `emulator-5556`: tagged fixture
+      `comment-tagged.mp3` (filename has NO YouTube ID, COMMENT tag
+      has `https://www.youtube.com/watch?v=dQw4w9WgXcQ`) pushed to
+      `/sdcard/Music/tonearmboy-test-newpipe/`. Bulk run result: 7/7
+      songs processed, 5 covers found. Log entry confirms
+      `Comment Tagged Test · YouTube · Saved from YouTube` — the
+      COMMENT-tag byte-scan path delivered the cover when filename
+      gave nothing. Screenshot `/tmp/tonearmboy-r4-bulk.png`.
+- [ ] **I.9** Release cut: `scripts/build-release-apk.sh --gh-release`.
 
 ## Open questions / decisions
 
