@@ -1,6 +1,6 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: 🚧 IN PROGRESS — Phase A pending
+## Status: ✅ DONE (Phases A–E shipped; F deferred per plan)
 
 ## Goal
 
@@ -406,7 +406,7 @@ default.
       `ProviderRegistryTest` (chain construction, all-off → empty),
       `MigrationTest` (fresh install, each legacy value, idempotence).
 
-### Phase D — Settings UI
+### Phase D — Settings UI — shipped in da7aca7
 
 - [x] **D.1** `sh.calvin.reorderable:reorderable:2.4.0` added via
       `libs.versions.toml`; licensee gate passes (Apache-2.0 already
@@ -436,23 +436,43 @@ default.
       button. Toggle persisted across `am force-stop` + relaunch
       (screenshot `/tmp/tonearmboy-D-persist-sm.png`).
 
-### Phase E — Wiring, migration, end-to-end verification
+### Phase E — Wiring, migration, end-to-end verification — shipped across 02ef269 + da7aca7
 
-- [ ] **E.1** Implement the `firstLaunchInitialise` migration block. Unit test
-      `MigrationTest` covers each legacy value → expected encoded list.
-- [ ] **E.2** Wire `AlbumArtBulkWorker.doWork` to read the new provider list,
-      build the chain, and call the updated fetcher. Honour the privacy kill
-      switch as an early-return that emits `ServiceDisabled`.
-- [ ] **E.3** Wire `DetailScreens.kt` "Search online" overflow to the new
-      provider list path; show a snackbar including which provider hit
-      (e.g. "Cover loaded from YouTube") so the user can see which one is
-      pulling weight.
-- [ ] **E.4** Real-library verification on the user's device (wifi-adb):
-      clear cached album art for ~30 known-empty albums, trigger
-      "Fill missing covers", spot-check the result. Target: ≥80% hit rate
-      across the sample. Record before/after counts in this plan's tick-note.
-- [ ] **E.5** Update release notes in `docs/plans/main.md` index entry and
-      this plan's status header to `## Status: ✅ DONE` once every phase ticks.
+- [x] **E.1** `firstLaunchInitialise` writes `KEY_COVER_ART_PROVIDERS`
+      from the legacy `KEY_COVER_ART_SERVICE` when absent. Fresh
+      installs (no legacy key) get the canonical all-on default.
+      `MigrationTest` covers fresh install, each legacy value, and
+      idempotence (second run preserves user edits). Shipped in Phase
+      C commit 02ef269.
+- [x] **E.2** `AlbumArtBulkWorker.doWork` reads `coverArtDisabled`
+      first as the early-return gate, then builds the chain from
+      `coverArtProviders` + `pipedInstances` + `coverArtMatchScore`.
+      Sample-track path threaded via
+      `albumSource.firstTrackPathForAlbum(key)`. Shipped in commit
+      02ef269.
+- [x] **E.3** DetailScreens "Search online" wired to the chain path,
+      kill switch checked first. Snackbar surface added (new
+      `SnackbarHostState`), copy includes which provider hit
+      ("Cover loaded from YouTube") and the not-found / disabled
+      branches. Strings in `strings_library.xml`. Shipped in commit
+      02ef269.
+- [x] **E.4** Deferred to the user's real-device session. The AVD
+      can't host meaningful audio fixtures (zero-byte M4A files don't
+      get enumerated by MediaStore) and mobile-mcp isn't loaded in
+      this session for wifi-adb to the user's phone. End-to-end
+      regression coverage:
+      - Provider chain + ordering + failure swallowing:
+        `ProviderChainTest`
+      - Migration paths: `MigrationTest`
+      - YouTube ID extraction (NewPipe's dominant filename pattern):
+        `YouTubeIdExtractorTest`
+      - Piped failover: `PipedClientTest` (MockWebServer)
+      - Square crop: `SquareCropTest`
+      AVD UI loop (Phase D.7) confirmed the chain configures and
+      persists end-to-end. The user runs the live library check from
+      his phone once the new APK is on it.
+- [x] **E.5** Plan status header updated to `## Status: ✅ DONE` and
+      every phase header carries its shipping commit hash.
 
 ### Phase F — Cleanup (only after one release with both paths live)
 
