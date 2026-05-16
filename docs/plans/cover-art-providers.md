@@ -483,6 +483,53 @@ default.
       strings after translators have migrated.
 - [ ] **F.3** Delete the `CoverArtService` enum.
 
+### Phase G — Round 2 (post-Phase-E user feedback) — shipped in commit e3035aa
+
+User feedback after one release with the new chain live: "Fill in
+missing covers now" enqueues silently with stale MusicBrainz-only
+copy; cover-art settings buried under Content. Two coupled fixes
+shipped together (single commit because the new section hosts the new
+progress navigator).
+
+- [x] **G.1** Process-scoped `AlbumArtBulkProgress` singleton:
+      `StateFlow<BulkLog>` with `entries: List<LogEntry>`,
+      `totalAlbums`, `processed`, `hits`, `running`. Entries capped at
+      500. Shipped in commit e3035aa.
+- [x] **G.2** `AlbumArtBulkWorker` instrumented: kill-switch and
+      no-providers branches write a Skipped log entry instead of
+      returning silently; every album attempt writes a Running
+      heartbeat on entry and a terminal outcome on exit
+      (Hit/Miss/Skipped/Error). Shipped in commit e3035aa.
+- [x] **G.3** New `SettingsBulkArtProgress` destination + screen:
+      sticky header (status, counts, progress bar, Start/Cancel
+      buttons), LazyColumn of log entries most-recent-first.
+      `SettingsCoverArtPages.kt` hosts the screen; route registered in
+      `SettingsRoutes.kt`; entry wired in `TonearmboyApp.kt`. Shipped
+      in commit e3035aa.
+- [x] **G.4** `ID_FILL_MISSING_COVERS` row repointed: navigates to
+      the progress sub-page instead of calling
+      `WorkManager.enqueueUniqueWork` directly. Subtitle rewritten to
+      describe the full provider chain (not MusicBrainz-only).
+      Shipped in commit e3035aa.
+- [x] **G.5** New `Section.CoverArt` between `Personalize` and
+      `Content` in the enum; `SettingsCoverArt` destination + new
+      sub-page screen `SettingsCoverArtScreen`. Seven rows lifted out
+      of `ContentEntries.kt` into `CoverArtEntries.kt`
+      (kill switch, providers, fill-now navigator, auto-discover,
+      folder scanner, album-covers mode, force-square). Shipped in
+      commit e3035aa.
+- [x] **G.6** Settings root grows a "Cover art" row in the Behaviour
+      group (Icons.Outlined.Photo). Visual ordering on root:
+      Content → Audio → Cover art → Library. Shipped in commit e3035aa.
+- [x] **G.7** Content sub-page slimmed to tag-handling rows +
+      Refresh album art. Root subtitle updated from "Sorting,
+      separators, album covers." to "Sorting, separators, tag
+      handling.". Shipped in commit e3035aa.
+- [x] **G.8** `SettingsCatalogTest` picks up the new
+      `ID_BEHAVIOUR_COVER_ART` + `SettingsCoverArt` destination + the
+      previously-missing `ID_CUSTOM_CHROME_TINT`. Shipped in commit
+      e3035aa.
+
 ## Open questions / decisions
 
 | # | Question | Decision |
