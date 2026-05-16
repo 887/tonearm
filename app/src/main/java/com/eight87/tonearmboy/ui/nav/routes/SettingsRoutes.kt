@@ -142,6 +142,40 @@ fun SettingsContent.Register(scope: RouteScope) {
       onComingSoon = onComingSoon,
       snackbarHostState = snackbar,
       onRefreshAlbumArt = onRefreshAlbumArt,
+      onOpenCoverArtProviders = {
+        backStack.push(com.eight87.tonearmboy.ui.nav.SettingsCoverArtProviders)
+      },
+    )
+  }
+}
+
+/** Cover-art Phase D — reorderable provider list sub-page. */
+@Composable
+fun com.eight87.tonearmboy.ui.nav.SettingsCoverArtProviders.Register(scope: RouteScope) {
+  val sectionTitle = LocalSectionTitle.current
+  LaunchedEffect(Unit) { sectionTitle.value = "Cover art providers" }
+  with(scope) {
+    com.eight87.tonearmboy.ui.settings.CoverArtProvidersScreen(
+      library = graph.settingsRepository,
+      onBack = { backStack.pop() },
+      onOpenPipedInstances = {
+        backStack.push(com.eight87.tonearmboy.ui.nav.SettingsPipedInstances)
+      },
+      snackbarHostState = snackbar,
+    )
+  }
+}
+
+/** Cover-art Phase D.3 — Piped instance list editor. */
+@Composable
+fun com.eight87.tonearmboy.ui.nav.SettingsPipedInstances.Register(scope: RouteScope) {
+  val sectionTitle = LocalSectionTitle.current
+  LaunchedEffect(Unit) { sectionTitle.value = "Piped instances" }
+  with(scope) {
+    com.eight87.tonearmboy.ui.settings.PipedInstancesScreen(
+      library = graph.settingsRepository,
+      onBack = { backStack.pop() },
+      snackbarHostState = snackbar,
     )
   }
 }

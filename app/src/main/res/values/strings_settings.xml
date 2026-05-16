@@ -120,10 +120,28 @@
   <string name="settings_content_hide_collaborators_subtitle">Show only the primary album artist; collapse featured-artist credits.</string>
   <string name="settings_content_auto_discover_album_art_label">Auto-discover missing album art</string>
   <string name="settings_content_auto_discover_album_art_subtitle">Schedule a one-shot bulk pass for albums missing local art. Uses the cover-art service picked below; does nothing while the service is set to None.</string>
+  <!-- Cover-art Phase D — replaced by the providers list below. Kept one release for translators. -->
   <string name="settings_content_cover_art_service_label">Cover art service</string>
   <string name="settings_content_cover_art_service_subtitle">None (default) makes no web requests. MusicBrainz hits Cover Art Archive (better for indie / niche). iTunes hits Apple\'s public search (better for popular catalogue).</string>
   <string name="settings_content_cover_art_match_score_label">MusicBrainz match threshold</string>
-  <string name="settings_content_cover_art_match_score_subtitle">How picky to be about MusicBrainz hits. 100 = perfect match only; 50 = accept fuzzy matches. Default 70. Only used when the service above is MusicBrainz.</string>
+  <string name="settings_content_cover_art_match_score_subtitle">How picky to be about MusicBrainz hits. 100 = perfect match only; 50 = accept fuzzy matches. Default 70. Only used when MusicBrainz is in the active provider chain.</string>
+  <!-- Cover-art Phase D — multi-provider chain UI. -->
+  <string name="settings_content_cover_art_providers_label">Cover art providers</string>
+  <string name="settings_content_cover_art_providers_subtitle">Drag to reorder; toggle to enable. Top of the list is tried first.</string>
+  <string name="settings_content_cover_art_providers_title">Cover art providers</string>
+  <string name="settings_content_cover_art_providers_hint">Tried in order, top first. The first that finds art wins.</string>
+  <string name="settings_content_cover_art_disabled_label">Turn off online cover-art lookups</string>
+  <string name="settings_content_cover_art_disabled_subtitle">When on, the app makes no web requests for cover art. Your provider list below is preserved.</string>
+  <string name="settings_content_cover_art_piped_instances_label">Piped instances</string>
+  <string name="settings_content_cover_art_piped_instances_title">Piped instances</string>
+  <string name="settings_content_cover_art_piped_instances_subtitle">Comma-separated list of Piped API base URLs. The YouTube provider falls through them in order when an album has no embedded video ID. Leave empty to use the built-in pool.</string>
+  <string name="settings_content_cover_art_piped_instances_reset">Reset to defaults</string>
+  <string name="settings_content_cover_art_provider_youtube">YouTube (NewPipe-aware)</string>
+  <string name="settings_content_cover_art_provider_youtube_desc">Uses embedded video ID from NewPipe filenames; falls back to Piped search.</string>
+  <string name="settings_content_cover_art_provider_itunes">iTunes</string>
+  <string name="settings_content_cover_art_provider_itunes_desc">Apple\'s public album search. Best for mainstream catalogue.</string>
+  <string name="settings_content_cover_art_provider_musicbrainz">MusicBrainz / Cover Art Archive</string>
+  <string name="settings_content_cover_art_provider_musicbrainz_desc">Open music database. Skews indie. Rate-limited to 1 request per second.</string>
   <string name="settings_content_scan_folders_for_cover_art_label">Scan folders for cover art</string>
   <string name="settings_content_scan_folders_for_cover_art_subtitle">Pick up cover.jpg / folder.jpg / albumart.jpg files next to album folders during library scan. FilePicker mode only.</string>
   <string name="settings_content_fill_missing_covers_label">Fill in missing covers now</string>

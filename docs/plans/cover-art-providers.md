@@ -165,7 +165,7 @@ lookup, sorted by `trackNumber ASC, id ASC` so the result is stable.
 
 NewPipe writes the filename as `<title>-<id>.<ext>` where `<id>` is the
 canonical 11-char YouTube ID (`[A-Za-z0-9_-]{11}`). Filename match is the
-single highest-signal source.
+single highest-signal source AND the only one we'll use.
 
 ```kotlin
 private val YT_ID = Regex("""-([A-Za-z0-9_-]{11})(?=\.[^.]+$)""")
@@ -173,11 +173,11 @@ fun extractFromFilename(path: String): String? =
   YT_ID.find(path.substringAfterLast('/'))?.groupValues?.getOrNull(1)
 ```
 
-For container-level tags: **Decision: filename-only first.** Add
-jaudiotagger only if real-world testing on the user's library proves it
-necessary (LGPL dep needs an explicit allowlist exemption + license text;
-not worth it unless the smoke-test demands it). Phase B.4 gates the dep
-behind a smoke-test result.
+**Decision: filename-only, no container-tag reading.** No `jaudiotagger`,
+no taglib bindings, no LGPL/GPL dep — keeps the APK MIT-clean with zero
+allowlist exemptions. When NewPipe didn't bake the ID into the filename
+the file falls through to the Piped search path (artist + title), same
+as any non-NewPipe download. No dep gate, no smoke-test conditional.
 
 ### Piped instance pool
 
@@ -366,12 +366,10 @@ default.
       extraction is a pure regex that exactly matches NewPipe's
       `<title>-<11chars>.<ext>` output and is covered by deterministic
       unit tests with realistic fixtures (including `dQw4w9WgXcQ`,
-      multi-dash titles, underscore-bearing IDs). Container-tag readers
-      (jaudiotagger / LGPL exemption) NOT added in Round 1 — the user
-      can opt into them after measuring miss rate on his real library.
-      mobile-mcp tooling not loaded in this session so AVD-side
-      `/sdcard/Music/` walk was skipped in favour of regression
-      coverage in `YouTubeIdExtractorTest`.
+      multi-dash titles, underscore-bearing IDs). **No container-tag
+      reader will ever be added** — keeps the APK MIT-clean (no LGPL
+      exemption). Non-NewPipe files that miss the filename pattern fall
+      through to Piped search (B.3), same as any unknown source.
 - [x] **B.5** Unit tests: `YouTubeIdExtractorTest` (NewPipe canonical,
       multi-dash titles, underscore/dash inside id, wrong length
       rejection, no-extension rejection, no-dash rejection),
@@ -380,7 +378,7 @@ default.
       `SquareCropTest` (16:9 → 900x900, square left untouched
       byte-for-byte).
 
-### Phase C — Multi-provider data model
+### Phase C — Multi-provider data model — shipped in 02ef269
 
 - [x] **C.1** `ProviderConfig(kind, enabled)` + `ProviderListCodec` with
       encode/decode round-trip, canonical fill, malformed-token drop,
@@ -410,33 +408,33 @@ default.
 
 ### Phase D — Settings UI
 
-- [ ] **D.1** Add `sh.calvin.reorderable:reorderable:2.4.0` to `build.gradle.kts`;
-      run `./gradlew :app:licenseeAndroidDebug` to confirm Apache-2.0 passes
-      the allowlist.
-- [ ] **D.2** New sub-page composable `CoverArtProvidersScreen` in
-      `ui/settings/SettingsSubPages.kt` (or a new file if SubPages.kt is
-      over ~800 LOC — check first). Uses `rememberReorderableLazyListState`,
-      `ReorderableItem`, `Modifier.draggableHandle()`. Persists order
-      on drag end.
-- [ ] **D.3** Per-provider sub-sub-page navigation: YouTube → Piped instance
-      list editor (text field, validated, reset-to-default button); iTunes
-      → empty for now (or a "no settings" placeholder); MusicBrainz → link
-      back to the existing match-threshold dialog.
-- [ ] **D.4** Replace `ID_COVER_ART_SERVICE` entry in `ContentEntries.kt` with
-      a new `ID_COVER_ART_PROVIDERS` row showing
-      "On: YouTube, iTunes" style summary text (computed from active configs).
-- [ ] **D.5** Add the privacy kill switch toggle `ID_COVER_ART_DISABLED` in the
-      Content section, above the providers row.
-- [ ] **D.6** Update strings in `strings_settings.xml`: new keys
-      `settings_content_cover_art_providers_label/subtitle`,
-      `settings_content_cover_art_piped_instances_label/subtitle`,
-      `settings_content_cover_art_disabled_label/subtitle`. Mark the old
-      `settings_content_cover_art_service_*` keys deprecated (XML comment;
-      keep them one release for translations).
-- [ ] **D.7** AVD smoke-test: install debug APK, navigate
-      Settings → Content → Cover art providers, drag rows, toggle, kill
-      app, reopen, confirm order persisted. Screenshot via the canonical
-      `screencap | magick -resize 50%` loop.
+- [x] **D.1** `sh.calvin.reorderable:reorderable:2.4.0` added via
+      `libs.versions.toml`; licensee gate passes (Apache-2.0 already
+      allowed).
+- [x] **D.2** `CoverArtProvidersScreen` lives in new file
+      `ui/settings/CoverArtProvidersScreen.kt` (SubPages.kt already at
+      1129 LOC, plan said split if >800). Uses
+      `rememberReorderableLazyListState` + `ReorderableItem` +
+      `Modifier.draggableHandle()`. Order/toggle write to DataStore
+      immediately.
+- [x] **D.3** YouTube row body links to the Piped instance list
+      editor. iTunes / MusicBrainz rows have no sub-sub-page today —
+      their body shows only the description. MusicBrainz match-threshold
+      dialog stays on the Content page (moving it under MusicBrainz
+      row would add a tap for a slider the user wants under thumb).
+- [x] **D.4** ContentEntries row `ID_COVER_ART_PROVIDERS` replaces
+      `ID_COVER_ART_SERVICE`. Subtitle shows active providers
+      ("YouTube, iTunes, MusicBrainz") / "Off" when kill switch on /
+      "No providers" when every entry off.
+- [x] **D.5** `ID_COVER_ART_DISABLED` Toggle row above the providers row.
+- [x] **D.6** New strings in `strings_settings.xml`. Legacy
+      `settings_content_cover_art_service_*` kept with deprecation
+      XML comment for one release.
+- [x] **D.7** AVD verified end-to-end on `emulator-5554`:
+      Settings → Content → Cover art providers renders three rows with
+      drag handles, toggles, and YouTube → Piped instances body
+      button. Toggle persisted across `am force-stop` + relaunch
+      (screenshot `/tmp/tonearmboy-D-persist-sm.png`).
 
 ### Phase E — Wiring, migration, end-to-end verification
 
@@ -469,7 +467,7 @@ default.
 
 | # | Question | Decision |
 |---|----------|----------|
-| 1 | LGPL jaudiotagger dep — accept the exemption? | **No, not yet.** Filename extraction covers NewPipe's dominant format. Add only if B.4 smoke-test proves we need it. |
+| 1 | LGPL jaudiotagger dep — accept the exemption? | **No, never.** User vetoed (2026-05-16): MIT app stays MIT-clean. Filename regex handles every NewPipe file; non-NewPipe files fall through to Piped search. |
 | 2 | Fresh-install default — all-on or all-off? | **All-on, YouTube first.** User wants hits. The privacy kill switch is the inert mode. |
 | 3 | Crop YouTube thumbnails square by default? | **Yes.** The player grid expects square. Per-provider toggle to opt out. |
 | 4 | Reorder library vs hand-roll? | **Use `sh.calvin.reorderable`.** Apache-2.0, small, maintained. |

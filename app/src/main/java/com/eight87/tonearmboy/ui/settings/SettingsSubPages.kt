@@ -486,6 +486,8 @@ fun SettingsContentScreen(
   snackbarHostState: SnackbarHostState,
   // album-art — drop Coil's caches; bound to the Refresh album art row.
   onRefreshAlbumArt: () -> Unit = {},
+  // Cover-art Phase D — opens the reorderable provider list sub-page.
+  onOpenCoverArtProviders: () -> Unit = {},
   // R.E.7 — injectable side-effect launchers (Settings-F6).
   autoReload: AutoReloadController = DefaultAutoReloadController,
 ) {
@@ -513,11 +515,18 @@ fun SettingsContentScreen(
   val scanFoldersForCoverArt by library.scanFoldersForCoverArt.flow.collectAsState(
     initial = true,
   )
+  @Suppress("DEPRECATION")
   val coverArtService by library.coverArtService.flow.collectAsState(
     initial = CoverArtService.Default,
   )
   val coverArtMatchScore by library.coverArtMatchScore.flow.collectAsState(
     initial = 70,
+  )
+  // Cover-art Phase D — kill switch + active-providers summary for the
+  // replacement row.
+  val coverArtDisabled by library.coverArtDisabled.flow.collectAsState(initial = false)
+  val coverArtProviders by library.coverArtProviders.flow.collectAsState(
+    initial = com.eight87.tonearmboy.data.albumart.ProviderListCodec.DEFAULT,
   )
   val scope = rememberCoroutineScope()
   // R.F.17 — picker state controllers (Settings-F5).
@@ -618,10 +627,17 @@ fun SettingsContentScreen(
       id = SettingsCatalog.ID_REFRESH_ALBUM_ART,
       onClick = onRefreshAlbumArt,
     ),
+    // Cover-art Phase D — privacy kill switch (above the providers row).
+    SettingsRowBinding.Toggle(
+      id = SettingsCatalog.ID_COVER_ART_DISABLED,
+      checked = coverArtDisabled,
+      onCheckedChange = { scope.launch { library.coverArtDisabled.set(it) } },
+    ),
+    // Cover-art Phase D — opens the reorderable list sub-page.
     SettingsRowBinding.Picker(
-      id = SettingsCatalog.ID_COVER_ART_SERVICE,
-      currentLabel = coverArtServiceLabel(coverArtService),
-      onClick = coverArtServicePicker::show,
+      id = SettingsCatalog.ID_COVER_ART_PROVIDERS,
+      currentLabel = activeProvidersSummary(coverArtProviders, coverArtDisabled),
+      onClick = onOpenCoverArtProviders,
     ),
     SettingsRowBinding.Picker(
       id = SettingsCatalog.ID_COVER_ART_MATCH_SCORE,
@@ -662,6 +678,10 @@ fun SettingsContentScreen(
     onPick = { scope.launch { library.albumCoversMode.set(it) } },
   )
 
+  // Phase D — legacy single-service picker still wired so the picker
+  // dialog state (never .show()'d after the row was removed) compiles.
+  // The whole branch is dead code path; remove in Phase F cleanup.
+  @Suppress("DEPRECATION")
   coverArtServicePicker.Render(
     title = "Cover art service",
     options = CoverArtService.entries,
@@ -972,6 +992,28 @@ internal fun coverArtServiceLabel(s: CoverArtService): String = when (s) {
   CoverArtService.Disabled -> "None (no web requests)"
   CoverArtService.MusicBrainz -> "MusicBrainz / Cover Art Archive"
   CoverArtService.ITunes -> "Apple iTunes Search"
+}
+
+/**
+ * Cover-art Phase D — summary string for the [SettingsCatalog.ID_COVER_ART_PROVIDERS]
+ * row. "Off" when the kill switch is on; otherwise the active
+ * providers listed in priority order; "No providers" when every
+ * entry is toggled off.
+ */
+internal fun activeProvidersSummary(
+  configs: List<com.eight87.tonearmboy.data.albumart.ProviderConfig>,
+  disabled: Boolean,
+): String {
+  if (disabled) return "Off"
+  val active = configs.filter { it.enabled }
+  if (active.isEmpty()) return "No providers"
+  return active.joinToString(", ") {
+    when (it.kind) {
+      com.eight87.tonearmboy.data.albumart.ProviderKind.YouTube -> "YouTube"
+      com.eight87.tonearmboy.data.albumart.ProviderKind.ITunes -> "iTunes"
+      com.eight87.tonearmboy.data.albumart.ProviderKind.MusicBrainz -> "MusicBrainz"
+    }
+  }
 }
 
 /**

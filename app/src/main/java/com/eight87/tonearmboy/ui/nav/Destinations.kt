@@ -79,6 +79,21 @@ data object SettingsContent : Destination
 data object SettingsAudio : Destination
 
 /**
+ * Cover-art Phase D — reorderable provider list (Settings → Content →
+ * Cover art providers). Hosts the drag-handle / toggle rows and links
+ * out to per-provider sub-sub-pages.
+ */
+@Serializable
+data object SettingsCoverArtProviders : Destination
+
+/**
+ * Cover-art Phase D — Piped instance list editor (YouTube provider
+ * sub-page).
+ */
+@Serializable
+data object SettingsPipedInstances : Destination
+
+/**
  * D.9d.1 — Music sources sub-page (Settings > Library > Music sources).
  * Hosts the SAF directory picker entry-point and the list of currently
  * configured tree URIs.

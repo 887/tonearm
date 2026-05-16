@@ -159,6 +159,10 @@ object SettingsCatalog {
   const val ID_AUTO_DISCOVER_ALBUM_ART = "content.auto_discover_album_art"
   const val ID_COVER_ART_SERVICE = "content.cover_art_service"
   const val ID_COVER_ART_MATCH_SCORE = "content.cover_art_match_score"
+  // Cover-art Phase D — replaces ID_COVER_ART_SERVICE.
+  const val ID_COVER_ART_PROVIDERS = "content.cover_art_providers"
+  // Cover-art Phase D — privacy kill switch above the providers row.
+  const val ID_COVER_ART_DISABLED = "content.cover_art_disabled"
   const val ID_SCAN_FOLDERS_FOR_COVER_ART = "content.scan_folders_for_cover_art"
   const val ID_FILL_MISSING_COVERS = "content.fill_missing_covers"
   const val ID_REFRESH_ALBUM_ART = "content.refresh_album_art"

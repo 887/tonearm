@@ -119,22 +119,37 @@ internal val ContentEntries: List<SettingsCatalogEntry> = listOf(
     destination = SettingsContent,
     breadcrumb = listOf(SECTION_CONTENT, "Album art sources", "Auto-discover missing album art"),
   ),
-  // Cover-art lookup service picker — the single privacy gate. When
-  // None (default) the app makes ZERO outbound HTTP requests for
-  // cover art. MusicBrainz / iTunes are opt-in.
+  // Cover-art Phase D — privacy kill switch. ON = chain bypassed
+  // entirely (zero web requests); OFF (default) = active providers in
+  // the priority list below are walked.
   SettingsCatalogEntry(
-    id = SettingsCatalog.ID_COVER_ART_SERVICE,
-    label = "Cover art service",
-    subtitle = "None (default) makes no web requests. MusicBrainz hits Cover Art Archive (better for indie / niche). iTunes hits Apple's public search (better for popular catalogue).",
-    labelRes = R.string.settings_content_cover_art_service_label,
-    subtitleRes = R.string.settings_content_cover_art_service_subtitle,
-    keywords = listOf("cover", "art", "service", "musicbrainz", "itunes", "apple", "online", "web", "privacy"),
+    id = SettingsCatalog.ID_COVER_ART_DISABLED,
+    label = "Turn off online cover-art lookups",
+    subtitle = "When on, the app makes no web requests for cover art. Your provider list below is preserved.",
+    labelRes = R.string.settings_content_cover_art_disabled_label,
+    subtitleRes = R.string.settings_content_cover_art_disabled_subtitle,
+    keywords = listOf("cover", "art", "privacy", "offline", "disable", "no", "network"),
+    icon = Icons.Outlined.Public,
+    section = Section.Content,
+    group = Groups.AlbumArtSources,
+    kind = RowKind.Toggle,
+    destination = SettingsContent,
+    breadcrumb = listOf(SECTION_CONTENT, "Album art sources", "Turn off online cover-art lookups"),
+  ),
+  // Cover-art Phase D — opens the reorderable provider list sub-page.
+  SettingsCatalogEntry(
+    id = SettingsCatalog.ID_COVER_ART_PROVIDERS,
+    label = "Cover art providers",
+    subtitle = "Drag to reorder; toggle to enable. Top of the list is tried first.",
+    labelRes = R.string.settings_content_cover_art_providers_label,
+    subtitleRes = R.string.settings_content_cover_art_providers_subtitle,
+    keywords = listOf("cover", "art", "providers", "youtube", "musicbrainz", "itunes", "apple", "newpipe", "piped", "order"),
     icon = Icons.Outlined.Public,
     section = Section.Content,
     group = Groups.AlbumArtSources,
     kind = RowKind.Picker,
     destination = SettingsContent,
-    breadcrumb = listOf(SECTION_CONTENT, "Album art sources", "Cover art service"),
+    breadcrumb = listOf(SECTION_CONTENT, "Album art sources", "Cover art providers"),
   ),
   // MusicBrainz match-score slider. Only meaningful when service is
   // MusicBrainz; the row stays visible regardless so the user can
