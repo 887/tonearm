@@ -21,8 +21,23 @@ object AlbumArtBulkProgress {
 
   const val MAX_ENTRIES = 500
 
-  /** Outcome of one album lookup attempt. */
-  enum class Outcome { Hit, Miss, Skipped, Error, Running }
+  /**
+   * Outcome of one album lookup attempt.
+   *
+   * Round 5 — kept as an enum (not a sealed type) so the per-row
+   * icon-tint lookup stays a single `when`. Sub-stage attribution
+   * (filename / COMMENT tag / Piped search) and the YouTube video id
+   * ride on [LogEntry.source] / [LogEntry.videoId] separately.
+   *
+   * - [Hit] — provider returned a URL and the cover was saved.
+   * - [Miss] — chain exhausted, no provider matched (was "NoProviderHit").
+   * - [NoIdResolved] — YouTube tried every stage, no id found.
+   * - [Skipped] — kill switch / no providers / user pinned / throttled.
+   * - [Throttled] — provider hit 429/403; disabled for rest of run.
+   * - [Error] — service-level error (network, IO, timeout).
+   * - [Running] — heartbeat as the worker enters this song.
+   */
+  enum class Outcome { Hit, Miss, NoIdResolved, Skipped, Throttled, Error, Running }
 
   /**
    * One row in the progress log.
@@ -48,6 +63,19 @@ object AlbumArtBulkProgress {
     val outcome: Outcome,
     /** Optional human-readable note (error message, "kill switch on", etc.). */
     val note: String? = null,
+    /**
+     * Round 5 — sub-stage that produced the hit ("filename" / "COMMENT
+     * tag" / "Piped search" / "Direct"). Null for non-terminal /
+     * non-hit entries. Surfaced in the log row as
+     * "Saved from YouTube (filename)".
+     */
+    val source: ResolutionSource? = null,
+    /**
+     * Round 5 — YouTube video id when known, even for the
+     * `IdFoundNoThumbnail` / `Hit` cases. Diagnostic gold when the
+     * user wants to know exactly which video the chain picked.
+     */
+    val videoId: String? = null,
   )
 
   /**

@@ -93,6 +93,12 @@ class AlbumArtBulkWorker(
     val tracks = graph.tracks.observeTracks().first()
     AlbumArtBulkProgress.reset(totalTracks = tracks.size)
 
+    // Round 5 — run-scoped set of providers that 429'd / 403'd during
+    // this bulk pass. The chain skips any provider in here on
+    // subsequent track lookups, so a temp-banned Piped instance can't
+    // cause N more wasted round-trips across the rest of the library.
+    val throttled: MutableSet<ProviderKind> = mutableSetOf()
+
     try {
       for (track in tracks) {
         if (isStopped) break
@@ -131,12 +137,14 @@ class AlbumArtBulkWorker(
           ),
         )
 
+        val throttledBefore = throttled.toSet()
         val result = try {
           fetcher.fetchTrack(
             context = applicationContext,
             track = track,
             chain = chain,
             musicBrainzMinScore = mbMinScore,
+            throttled = throttled,
           )
         } catch (t: Throwable) {
           AlbumArtBulkProgress.append(
@@ -153,6 +161,23 @@ class AlbumArtBulkWorker(
           continue
         }
 
+        // Round 5 — surface any newly-throttled provider so the user
+        // sees the back-off in the log instead of an unexplained Miss.
+        val newlyThrottled = throttled - throttledBefore
+        newlyThrottled.forEach { kind ->
+          AlbumArtBulkProgress.append(
+            AlbumArtBulkProgress.LogEntry(
+              timestampMs = System.currentTimeMillis(),
+              albumName = track.album.orEmpty(),
+              albumArtist = track.albumArtist ?: track.artist,
+              trackTitle = track.title,
+              providerKind = kind,
+              outcome = AlbumArtBulkProgress.Outcome.Throttled,
+              note = "${labelFor(kind)} throttled (429/403) — skipping for the rest of the run",
+            ),
+          )
+        }
+
         val entry = when (result) {
           is AlbumArtFetcher.FetchResult.Saved -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
@@ -161,7 +186,9 @@ class AlbumArtBulkWorker(
             trackTitle = track.title,
             providerKind = result.providerKind,
             outcome = AlbumArtBulkProgress.Outcome.Hit,
-            note = result.providerKind?.let { "Saved from ${labelFor(it)}" },
+            note = noteForSaved(result),
+            source = result.source,
+            videoId = result.videoId,
           )
           AlbumArtFetcher.FetchResult.NotFound -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
@@ -169,8 +196,15 @@ class AlbumArtBulkWorker(
             albumArtist = track.albumArtist ?: track.artist,
             trackTitle = track.title,
             providerKind = null,
-            outcome = AlbumArtBulkProgress.Outcome.Miss,
-            note = "No provider returned a match",
+            // YouTube-specific phrasing when the chain has only YouTube
+            // and it returned nothing — the user reads "No YouTube
+            // video found" as a clearer signal than the generic
+            // "No provider returned a match".
+            outcome = if (configs.singleEnabledIsYouTube()) {
+              AlbumArtBulkProgress.Outcome.NoIdResolved
+            } else AlbumArtBulkProgress.Outcome.Miss,
+            note = if (configs.singleEnabledIsYouTube()) "No YouTube video found"
+            else "No provider returned a match",
           )
           AlbumArtFetcher.FetchResult.ServiceDisabled -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
@@ -226,5 +260,50 @@ class AlbumArtBulkWorker(
       ProviderKind.ITunes -> "iTunes"
       ProviderKind.MusicBrainz -> "MusicBrainz"
     }
+
+    /**
+     * Round 5 — short label for a sub-stage that produced a hit:
+     * `"filename"`, `"COMMENT tag"`, `"Piped search"`, or no tag at
+     * all for [ResolutionSource.Direct] (iTunes / MusicBrainz —
+     * single-stage, naming the stage adds noise without info).
+     */
+    internal fun labelFor(src: ResolutionSource?): String? = when (src) {
+      ResolutionSource.Filename -> "filename"
+      ResolutionSource.CommentTag -> "COMMENT tag"
+      ResolutionSource.PipedSearch -> "Piped search"
+      ResolutionSource.Direct, null -> null
+    }
+
+    /**
+     * Build the "Saved from YouTube (Piped search)" note shape from a
+     * [FetchResult.Saved]. The sub-stage is parenthesised; iTunes /
+     * MusicBrainz hits collapse to plain "Saved from iTunes" since
+     * their single-stage attribution adds nothing.
+     */
+    internal fun noteForSaved(saved: AlbumArtFetcher.FetchResult.Saved): String? {
+      val provider = saved.providerKind?.let { labelFor(it) } ?: return null
+      val stage = labelFor(saved.source)
+      val base = "Saved from $provider"
+      return if (stage != null) "$base ($stage)" else base
+    }
+
+    /**
+     * True when the user has exactly one provider enabled and it's
+     * YouTube. Used to swap "No YouTube video found" in for the
+     * generic "No provider returned a match" — clearer signal when
+     * YouTube is the sole chain entry.
+     */
   }
+}
+
+/**
+ * Round 5 — top-level extension so the in-line `when` inside
+ * [AlbumArtBulkWorker.doWork] can read `configs.singleEnabledIsYouTube()`
+ * without qualifying the companion. True only when exactly one
+ * provider is enabled and it's YouTube — drives the "No YouTube video
+ * found" phrasing for the chain-empty case.
+ */
+internal fun List<ProviderConfig>.singleEnabledIsYouTube(): Boolean {
+  val enabled = filter { it.enabled }
+  return enabled.size == 1 && enabled.first().kind == ProviderKind.YouTube
 }

@@ -222,6 +222,11 @@ private fun BulkArtLogRow(entry: AlbumArtBulkProgress.LogEntry) {
         }
         entry.providerKind?.let { add(AlbumArtBulkWorker.labelFor(it)) }
         entry.note?.let { add(it) }
+        // Round 5 — surface the YouTube video id when known so the
+        // user can paste it into a browser to verify the chain picked
+        // the right upload. Diagnostic gold for the "why didn't this
+        // hit" cases.
+        entry.videoId?.let { add("id: $it") }
       }
       Text(
         text = noteParts.joinToString(" · "),
@@ -235,7 +240,12 @@ private fun BulkArtLogRow(entry: AlbumArtBulkProgress.LogEntry) {
 private fun iconFor(o: AlbumArtBulkProgress.Outcome): Pair<ImageVector, Color> = when (o) {
   AlbumArtBulkProgress.Outcome.Hit -> Icons.Outlined.CheckCircle to Color(0xFF4CAF50)
   AlbumArtBulkProgress.Outcome.Miss -> Icons.Outlined.SearchOff to Color(0xFF9E9E9E)
+  // Round 5 — visually distinct from generic Miss: the YouTube chain
+  // tried every stage and resolved no id, which is a stronger signal
+  // than "chain returned nothing".
+  AlbumArtBulkProgress.Outcome.NoIdResolved -> Icons.Outlined.SearchOff to Color(0xFF9E9E9E)
   AlbumArtBulkProgress.Outcome.Skipped -> Icons.Outlined.HighlightOff to Color(0xFFB0BEC5)
+  AlbumArtBulkProgress.Outcome.Throttled -> Icons.Outlined.ErrorOutline to Color(0xFFFFB74D)
   AlbumArtBulkProgress.Outcome.Error -> Icons.Outlined.ErrorOutline to Color(0xFFE57373)
   AlbumArtBulkProgress.Outcome.Running -> Icons.Outlined.HourglassEmpty to Color(0xFF42A5F5)
 }

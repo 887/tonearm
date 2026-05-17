@@ -147,9 +147,9 @@ class AlbumArtFetcher(
     req: CoverArtRequest,
     chain: ProviderChain,
   ): FetchResult {
-    val resolved = chain.resolve(req) ?: return FetchResult.NotFound
-    val coverUrl = resolved.second
-    val providerKind = resolved.first
+    val resolved = chain.resolveRich(req) ?: return FetchResult.NotFound
+    val coverUrl = resolved.url
+    val providerKind = resolved.kind
 
     val cacheDir = File(context.cacheDir, "album_art").also { it.mkdirs() }
     val target = File(cacheDir, "${key.hashCode().toUInt()}.jpg")
@@ -197,6 +197,13 @@ class AlbumArtFetcher(
     chain: ProviderChain,
     musicBrainzMinScore: Int = 70,
     overwriteUserChoice: Boolean = false,
+    /**
+     * Round 5 — run-scoped set of providers that have 429'd / 403'd
+     * earlier in the bulk pass. The chain skips any provider in this
+     * set; new throttle hits append to it via [ThrottledException].
+     * Pass a fresh empty set for one-off fetches.
+     */
+    throttled: MutableSet<ProviderKind> = mutableSetOf(),
   ): FetchResult {
     val sink = trackSource
       ?: return FetchResult.Failed("fetchTrack called with no TrackSource wired")
@@ -223,9 +230,11 @@ class AlbumArtFetcher(
         // values mean "unknown" → null so the filter is skipped.
         expectedDurationSec = (track.durationMs / 1000).toInt().takeIf { it > 0 },
       )
-      val resolved = chain.resolve(req) ?: return@withFetch FetchResult.NotFound
-      val coverUrl = resolved.second
-      val providerKind = resolved.first
+      val resolved = chain.resolveRich(req, throttled) ?: return@withFetch FetchResult.NotFound
+      val coverUrl = resolved.url
+      val providerKind = resolved.kind
+      val resolutionSource = resolved.source
+      val videoId = resolved.videoId
 
       val cacheDir = File(context.cacheDir, "track_art").also { it.mkdirs() }
       val target = File(cacheDir, "${track.id}.jpg")
@@ -242,7 +251,7 @@ class AlbumArtFetcher(
 
       cropToSquareIfNeeded(target)
       sink.setTrackCoverUri(track.id, target.toURI().toString())
-      FetchResult.Saved(target.toURI().toString(), providerKind)
+      FetchResult.Saved(target.toURI().toString(), providerKind, resolutionSource, videoId)
     }
   }
 
@@ -282,7 +291,18 @@ class AlbumArtFetcher(
      * succeeded via a non-chain code path (none exist today, kept for
      * forward compatibility).
      */
-    data class Saved(val uri: String, val providerKind: ProviderKind? = null) : FetchResult
+    data class Saved(
+      val uri: String,
+      val providerKind: ProviderKind? = null,
+      /**
+       * Round 5 — sub-stage that produced the hit. Null when the
+       * legacy single-service code path produced the result (kept
+       * for back-compat with the deprecated `fetch(service=)` entry).
+       */
+      val source: ResolutionSource? = null,
+      /** Round 5 — YouTube video id when known; null otherwise. */
+      val videoId: String? = null,
+    ) : FetchResult
     data object AlreadyPinned : FetchResult
     data object IntentionallyEmpty : FetchResult
     data object NotFound : FetchResult
