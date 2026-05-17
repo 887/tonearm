@@ -157,6 +157,13 @@ dependencies {
   androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.espresso.core)
+  // Room MigrationTestHelper for `LibraryDatabaseMigrationTest`. Room
+  // 2.8.x's schema-bundle deserializer expects
+  // `kotlinx-serialization-core >= 1.8` (default impl of
+  // `GeneratedSerializer.typeParametersSerializers()`); the
+  // project-wide bump in `libs.versions.toml` keeps the production
+  // classpath ahead of that floor.
+  androidTestImplementation(libs.androidx.room.testing)
 
   // Navigation
   implementation(libs.androidx.navigation3.ui)

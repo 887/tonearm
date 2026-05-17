@@ -3442,7 +3442,7 @@
     {
         "groupId": "org.jetbrains.kotlinx",
         "artifactId": "kotlinx-serialization-core",
-        "version": "1.7.3",
+        "version": "1.9.0",
         "name": "kotlinx-serialization-core",
         "spdxLicenses": [
             {
@@ -3458,7 +3458,7 @@
     {
         "groupId": "org.jetbrains.kotlinx",
         "artifactId": "kotlinx-serialization-core-jvm",
-        "version": "1.7.3",
+        "version": "1.9.0",
         "name": "kotlinx-serialization-core",
         "spdxLicenses": [
             {
@@ -3474,7 +3474,7 @@
     {
         "groupId": "org.jetbrains.kotlinx",
         "artifactId": "kotlinx-serialization-json",
-        "version": "1.7.3",
+        "version": "1.9.0",
         "name": "kotlinx-serialization-json",
         "spdxLicenses": [
             {
@@ -3490,7 +3490,7 @@
     {
         "groupId": "org.jetbrains.kotlinx",
         "artifactId": "kotlinx-serialization-json-jvm",
-        "version": "1.7.3",
+        "version": "1.9.0",
         "name": "kotlinx-serialization-json",
         "spdxLicenses": [
             {
