@@ -223,7 +223,7 @@ fun AlbumDetailScreen(
                       loadedFromTemplate.format(
                         result.providerKind?.name ?: "Unknown",
                       )
-                    com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.NotFound -> notFoundMsg
+                    is com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.NotFound -> notFoundMsg
                     com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.ServiceDisabled -> chainDisabledMsg
                     is com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.Failed -> notFoundMsg
                     com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.FetchResult.AlreadyPinned,

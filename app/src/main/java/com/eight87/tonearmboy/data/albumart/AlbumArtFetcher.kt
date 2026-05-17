@@ -221,9 +221,11 @@ class AlbumArtFetcher(
         // the filename has no embedded YouTube id. Track title isn't
         // a CoverArtRequest field; we keep the search shape identical
         // to the album path so each provider's chain hits the same
-        // signatures.
+        // signatures. Round 6 / Fix A: coerce the MediaStore
+        // `<unknown>` placeholder to null so Piped sees a title-only
+        // query and iTunes/MusicBrainz don't waste a round-trip on it.
         albumName = track.album.orEmpty().ifBlank { track.title },
-        albumArtist = track.albumArtist ?: track.artist,
+        albumArtist = TitleSanitizer.coerceArtist(track.albumArtist ?: track.artist),
         sampleTrackPath = track.data,
         musicBrainzMinScore = musicBrainzMinScore,
         // Round 4 — duration affinity for Piped search. Zero / negative

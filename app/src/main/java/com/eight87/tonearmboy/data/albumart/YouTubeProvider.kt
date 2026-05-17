@@ -49,38 +49,74 @@ class YouTubeProvider(
   override val kind: ProviderKind = ProviderKind.YouTube
 
   override suspend fun findCover(req: CoverArtRequest): ProviderResult? {
-    val resolution = resolveVideoIdWithSource(req) ?: return null
-    val (videoId, source) = resolution
-    val url = pickBestThumbnail(videoId)
-    return ProviderResult(kind, url, source, videoId)
+    val diags = mutableListOf<StageDiag>()
+
+    // Stage 1 — filename.
+    val path = req.sampleTrackPath
+    val filenameId = path?.let { YouTubeIdExtractor.fromFilename(it) }
+    diags += StageDiag.Filename(matched = filenameId)
+    if (filenameId != null) {
+      val url = pickBestThumbnail(filenameId)
+      return ProviderResult(kind, url, ResolutionSource.Filename, filenameId, diags.toList())
+    }
+
+    // Stage 2 — tag (Round 4). Only attempted when a path AND a reader
+    // are both present; reading tags off content URIs / a missing
+    // reader records a Filename-only diag list and moves on.
+    val reader = tagReader
+    if (reader != null && path != null) {
+      val scan = runCatching { reader.readTextTagsRich(path) }
+        .getOrDefault(TagScanResult(null, 0, 0, 0))
+      val tagId = YouTubeCommentExtractor.fromCommentText(scan.captured)
+      diags += StageDiag.CommentTag(
+        captured = scan.captured?.take(80),
+        matched = tagId,
+        bytesScanned = scan.bytesScanned,
+      )
+      if (tagId != null) {
+        val url = pickBestThumbnail(tagId)
+        return ProviderResult(kind, url, ResolutionSource.CommentTag, tagId, diags.toList())
+      }
+    }
+
+    // Stage 3 — Piped search. May throw [ThrottledException] which
+    // propagates to the chain (and disables this provider for the
+    // rest of the bulk run). On throttle we still stash the diags so
+    // the log row shows the filename + tag-scan history that ran
+    // before Piped blew up.
+    val pipedDiag = try {
+      piped.searchRich(req.albumArtist, req.albumName, req.expectedDurationSec)
+    } catch (t: ThrottledException) {
+      lastMissDiags = diags.toList()
+      throw t
+    }
+    diags += pipedDiag
+    val pipedId = pipedDiag.matchedId
+    if (pipedId != null) {
+      val url = pickBestThumbnail(pipedId)
+      return ProviderResult(kind, url, ResolutionSource.PipedSearch, pipedId, diags.toList())
+    }
+
+    // Miss — stash diags so the chain can surface them on the log
+    // row for the no-match track. `lastMissDiags` is read once per
+    // worker iteration on the single bulk-art thread, so no concurrency
+    // hazard. See [AlbumArtBulkWorker] for the consumer.
+    lastMissDiags = diags.toList()
+    return null
   }
 
   /**
-   * Round 5 — returns both the resolved video id AND the stage that
-   * produced it so the bulk-art log can name "filename" vs "COMMENT
-   * tag" vs "Piped search". Returns null when every stage missed (or
-   * when stage 3 throws [ThrottledException], which propagates so the
-   * chain can disable Piped for the rest of the run).
+   * Round 6 / Fix C — last `findCover` invocation's collected
+   * diagnostics when that call resolved to null (a miss). Cleared by
+   * the worker between tracks. Single-thread bulk worker → no need
+   * to thread this through the chain return type.
    */
-  private suspend fun resolveVideoIdWithSource(req: CoverArtRequest): Pair<String, ResolutionSource>? {
-    // Stage 1 — filename.
-    req.sampleTrackPath?.let { path ->
-      YouTubeIdExtractor.fromFilename(path)?.let { return it to ResolutionSource.Filename }
-    }
-    // Stage 2 — tag (Round 4). Only attempted when a path AND a reader
-    // are both present; reading tags off content URIs / a missing
-    // reader is a no-op fallthrough.
-    val reader = tagReader
-    val path = req.sampleTrackPath
-    if (reader != null && path != null) {
-      val blob = runCatching { reader.readTextTags(path) }.getOrNull()
-      YouTubeCommentExtractor.fromCommentText(blob)?.let { return it to ResolutionSource.CommentTag }
-    }
-    // Stage 3 — Piped search. May throw [ThrottledException] which
-    // propagates to the chain (and disables this provider for the
-    // rest of the bulk run).
-    val pipedId = piped.searchVideoId(req.albumArtist, req.albumName, req.expectedDurationSec)
-    return pipedId?.let { it to ResolutionSource.PipedSearch }
+  @Volatile
+  var lastMissDiags: List<StageDiag> = emptyList()
+    private set
+
+  fun clearMissDiags() {
+    lastMissDiags = emptyList()
   }
 
   /**

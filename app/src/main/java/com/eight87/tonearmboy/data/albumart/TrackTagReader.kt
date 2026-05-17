@@ -23,8 +23,34 @@ interface TrackTagReader {
    *
    * Implementations MUST be safe to call from [Dispatchers.IO].
    */
-  suspend fun readTextTags(path: String): String?
+  suspend fun readTextTags(path: String): String? = readTextTagsRich(path).captured
+
+  /**
+   * Round 6 / Fix C — richer overload that returns both the captured
+   * URL slice and diagnostic info (bytes scanned, head/tail status).
+   * The bulk-art worker funnels through this so the log row can show
+   * `tag-scan: no URL in 384KB (header empty, footer empty)`.
+   *
+   * Default impl wraps the legacy [readTextTags] for fakes / tests
+   * that only care about the captured URL.
+   */
+  suspend fun readTextTagsRich(path: String): TagScanResult =
+    TagScanResult(captured = null, bytesScanned = 0, headScanned = 0, tailScanned = 0)
 }
+
+/**
+ * Round 6 / Fix C — outcome of one [TrackTagReader.readTextTagsRich]
+ * call. [captured] is the URL slice extracted from the file bytes (or
+ * null). [bytesScanned] is the total bytes inspected; [headScanned] /
+ * [tailScanned] split that across the two regions so the diagnostic
+ * can say "header empty, footer empty".
+ */
+data class TagScanResult(
+  val captured: String?,
+  val bytesScanned: Int,
+  val headScanned: Int,
+  val tailScanned: Int,
+)
 
 /**
  * Production implementation — a small **byte-level URL scanner** that
@@ -66,11 +92,14 @@ interface TrackTagReader {
 class AndroidTrackTagReader(
   @Suppress("unused") private val context: Context,
 ) : TrackTagReader {
-  override suspend fun readTextTags(path: String): String? = withContext(Dispatchers.IO) {
-    val file = runCatching { File(path) }.getOrNull() ?: return@withContext null
-    if (!file.exists() || !file.isFile) return@withContext null
+  override suspend fun readTextTags(path: String): String? = readTextTagsRich(path).captured
+
+  override suspend fun readTextTagsRich(path: String): TagScanResult = withContext(Dispatchers.IO) {
+    val file = runCatching { File(path) }.getOrNull()
+      ?: return@withContext TagScanResult(null, 0, 0, 0)
+    if (!file.exists() || !file.isFile) return@withContext TagScanResult(null, 0, 0, 0)
     val length = file.length()
-    if (length == 0L) return@withContext null
+    if (length == 0L) return@withContext TagScanResult(null, 0, 0, 0)
 
     runCatching {
       RandomAccessFile(file, "r").use { raf ->
@@ -83,9 +112,14 @@ class AndroidTrackTagReader(
         }
         val headMatch = scanForYouTubeUrl(head)
         val tailMatch = if (headMatch == null) scanForYouTubeUrl(tail) else null
-        headMatch ?: tailMatch
+        TagScanResult(
+          captured = headMatch ?: tailMatch,
+          bytesScanned = head.size + tail.size,
+          headScanned = head.size,
+          tailScanned = tail.size,
+        )
       }
-    }.getOrNull()
+    }.getOrDefault(TagScanResult(null, 0, 0, 0))
   }
 
   private fun readRegion(raf: RandomAccessFile, offset: Long, size: Int): ByteArray {

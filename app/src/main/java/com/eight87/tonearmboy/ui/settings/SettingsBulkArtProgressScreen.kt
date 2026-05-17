@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import com.eight87.tonearmboy.R
 import com.eight87.tonearmboy.data.albumart.AlbumArtBulkProgress
 import com.eight87.tonearmboy.data.albumart.AlbumArtBulkWorker
+import com.eight87.tonearmboy.data.albumart.StageDiag
+import androidx.compose.ui.text.font.FontFamily
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -169,7 +171,13 @@ fun SettingsBulkArtProgressScreen(
             .semantics { testTag = "bulk_art_log_list" },
           contentPadding = PaddingValues(vertical = 4.dp),
         ) {
-          items(log.entries, key = { e -> "${e.timestampMs}-${e.albumName}-${e.outcome}" }) { entry ->
+          // Round 6 / Fix B — stable key by trackId so the row mutates
+          // in place rather than re-mounting. Fall back to a composite
+          // key for non-track entries (kill-switch / no-providers).
+          items(
+            log.entries,
+            key = { e -> e.trackId?.let { "t-$it" } ?: "x-${e.timestampMs}-${e.albumName}-${e.outcome}" },
+          ) { entry ->
             BulkArtLogRow(entry)
           }
           item { Spacer(Modifier.height(24.dp)) }
@@ -233,9 +241,55 @@ private fun BulkArtLogRow(entry: AlbumArtBulkProgress.LogEntry) {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+
+      // Round 6 / Fix C — per-stage diagnostic sub-block. Renders
+      // monospace one-liners so a screenshot tells the full story
+      // without having to push files off the device.
+      if (entry.diags.isNotEmpty()) {
+        for (diag in entry.diags) {
+          Text(
+            text = formatDiag(diag),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = FontFamily.Monospace,
+          )
+        }
+      }
     }
   }
 }
+
+/**
+ * Round 6 / Fix C — render a [StageDiag] as a single short line.
+ * Length-capped via [String.take] on captured text so a long URL
+ * doesn't blow up the row vertically.
+ */
+private fun formatDiag(diag: StageDiag): String = when (diag) {
+  is StageDiag.Filename -> "filename: " + (diag.matched?.let { "id $it" } ?: "no ID")
+  is StageDiag.CommentTag -> {
+    val kb = diag.bytesScanned / 1024
+    when {
+      diag.matched != null ->
+        "tag-scan: id ${diag.matched} (${kb}KB scanned)"
+      diag.captured != null ->
+        "tag-scan: captured \"${diag.captured}\" (${kb}KB scanned, no 11-char ID)"
+      else ->
+        "tag-scan: no URL in ${kb}KB"
+    }
+  }
+  is StageDiag.PipedSearch -> {
+    val q = if (diag.query.length > 60) diag.query.take(60) + "…" else diag.query
+    val tail = when {
+      diag.matchedId != null && diag.durationMismatchSec != null ->
+        " → id ${diag.matchedId} (${signed(diag.durationMismatchSec)}s)"
+      diag.matchedId != null -> " → id ${diag.matchedId}"
+      else -> " → ${diag.results} results, no match"
+    }
+    "piped: \"$q\"$tail"
+  }
+}
+
+private fun signed(n: Int): String = if (n >= 0) "+$n" else n.toString()
 
 private fun iconFor(o: AlbumArtBulkProgress.Outcome): Pair<ImageVector, Color> = when (o) {
   AlbumArtBulkProgress.Outcome.Hit -> Icons.Outlined.CheckCircle to Color(0xFF4CAF50)

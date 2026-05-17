@@ -62,7 +62,58 @@ data class ProviderResult(
   val source: ResolutionSource,
   /** YouTube video id when the chain went through a YouTube stage; null otherwise. */
   val videoId: String? = null,
+  /**
+   * Round 6 / Fix C — per-stage diagnostics collected as the provider
+   * walked its internal chain. Surfaced in the bulk-art log row as a
+   * monospace sub-block so a screenshot tells the full story without
+   * the user pulling a file off the device.
+   */
+  val diags: List<StageDiag> = emptyList(),
 )
+
+/**
+ * Round 6 / Fix C — per-stage diagnostic info attached to a
+ * [ProviderResult] (or — for misses — to a [LogEntry] directly).
+ *
+ * Each stage variant records what that stage actually did:
+ * the matched id (or null), the captured input slice, the bytes
+ * scanned, the search query, the result count, etc. The log row
+ * renders each diag as a single short line.
+ */
+sealed interface StageDiag {
+  /** Stage 1 — filename regex. */
+  data class Filename(val matched: String?) : StageDiag
+
+  /**
+   * Stage 2 — COMMENT-tag byte scan.
+   *
+   * [captured] is the URL slice the scanner pulled out of the file
+   * bytes (or null when nothing was found). [matched] is the parsed
+   * 11-char YouTube id. [bytesScanned] is the total bytes inspected
+   * across head + tail regions.
+   */
+  data class CommentTag(
+    val captured: String?,
+    val matched: String?,
+    val bytesScanned: Int,
+  ) : StageDiag
+
+  /**
+   * Stage 3 — Piped search.
+   *
+   * [query] is the actual cleaned query string sent to Piped (post
+   * [TitleSanitizer]). [results] is how many search items came back.
+   * [matchedId] is the chosen 11-char id. [durationMismatchSec] is
+   * the picked result's duration minus the requested duration (sign
+   * indicates over/under), or null when no duration filter was applied.
+   */
+  data class PipedSearch(
+    val query: String,
+    val results: Int,
+    val matchedId: String?,
+    val durationMismatchSec: Int? = null,
+  ) : StageDiag
+}
 
 /**
  * Known provider variants. Persisted by enum name in
@@ -126,12 +177,35 @@ class ProviderChain(private val providers: List<CoverArtProvider>) {
   suspend fun resolveRich(
     req: CoverArtRequest,
     throttled: MutableSet<ProviderKind> = mutableSetOf(),
-  ): ProviderResult? {
+  ): ProviderResult? = resolveRichWithMissDiags(req, throttled).first
+
+  /**
+   * Round 6 / Fix C — resolve returning both the hit (if any) and the
+   * collected miss-diagnostics from each provider that returned null.
+   * Used by the bulk-art worker so the no-match log row can surface
+   * `filename: no ID / tag-scan: no URL / piped: "x" → 0 results`.
+   *
+   * On hit, the hit's own diags ride on the returned [ProviderResult];
+   * the second list is the diags from any *prior* providers that
+   * missed before this one fired. Today only [YouTubeProvider]
+   * actually emits miss-diags; the others return an empty list via
+   * the default-empty `lastMissDiags`.
+   */
+  suspend fun resolveRichWithMissDiags(
+    req: CoverArtRequest,
+    throttled: MutableSet<ProviderKind> = mutableSetOf(),
+  ): Pair<ProviderResult?, List<StageDiag>> {
+    val missDiags = mutableListOf<StageDiag>()
     for (p in providers) {
       if (p.kind in throttled) continue
       val result = runCatching { p.findCover(req) }
       val value = result.getOrNull()
-      if (value != null) return value
+      if (value != null) return value to missDiags.toList()
+      // Provider missed — collect any per-stage diagnostics it stashed.
+      if (p is YouTubeProvider) {
+        missDiags += p.lastMissDiags
+        p.clearMissDiags()
+      }
       // Throttling: caller's set tracks the providers that hit a 429
       // / 403 this run, so subsequent track lookups skip them outright.
       val err = result.exceptionOrNull()
@@ -139,7 +213,7 @@ class ProviderChain(private val providers: List<CoverArtProvider>) {
         throttled.add(p.kind)
       }
     }
-    return null
+    return null to missDiags.toList()
   }
 }
 
