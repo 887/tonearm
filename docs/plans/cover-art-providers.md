@@ -1,6 +1,6 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: 🟡 IN PROGRESS — Round 5 / Phase J landing (Phases A–I shipped; F deferred per plan)
+## Status: ✅ DONE (Phases A–J shipped; F deferred per plan)
 
 ## Goal
 
@@ -676,7 +676,7 @@ no rate-limit politeness across the worker's ~1 req/sec/track loop —
 on the user's 2000-song library this would hammer Piped instances
 into 429s within a minute. Three coupled fixes shipped together.
 
-- [ ] **J.1** `TrackSource.trackCoverUriFlow(trackId): Flow<String?>`
+- [x] **J.1** `TrackSource.trackCoverUriFlow(trackId): Flow<String?>`
       with a default impl composing against `trackCoverChoice` so all
       implementations + test fakes still work. `CoverArt` gained
       `trackId` + `trackSource` parameters; when present, the per-
@@ -684,8 +684,8 @@ into 429s within a minute. Three coupled fixes shipped together.
       `TileItem.trackId` + thread-through via `LibraryTileGrid` and
       `LibraryTabRenderer`; only the Songs `TracksTabSpec.toTile`
       populates `trackId`, other tabs stay album-only. Shipped in
-      commit TBD.
-- [ ] **J.2** `CoverArtProvider.findCover(req): ProviderResult?` —
+      commit eba7158.
+- [x] **J.2** `CoverArtProvider.findCover(req): ProviderResult?` —
       richer return shape carrying `ResolutionSource` (`Filename` /
       `CommentTag` / `PipedSearch` / `Direct`) + optional `videoId`.
       Legacy `findCoverUrl` interface method kept as a default
@@ -695,8 +695,8 @@ into 429s within a minute. Three coupled fixes shipped together.
       `Throttled` variants; `LogEntry` gained `source` + `videoId`.
       `SettingsBulkArtProgressScreen` row composes notes as
       "Saved from YouTube (Piped search) · id: dQw4w9WgXcQ".
-      Shipped in commit TBD.
-- [ ] **J.3** `PipedClient.perHostMinIntervalMs` (default 1000 ms)
+      Shipped in commit 4a9b49f.
+- [x] **J.3** `PipedClient.perHostMinIntervalMs` (default 1000 ms)
       throttle via `delay()` before each instance call;
       `ConcurrentHashMap<String, Long>` per-host last-request timestamp.
       HTTP 429 / 403 lifts into `ThrottledException` which the chain
@@ -705,15 +705,15 @@ into 429s within a minute. Three coupled fixes shipped together.
       (default false) — skip the HEAD ladder and return `hqdefault.jpg`
       directly, which exists for every video. Bulk worker is
       sequential (verified in `doWork`) so no extra inter-track pacing
-      needed beyond the per-host floor. Shipped in commit TBD.
-- [ ] **J.4** Unit tests: `PipedClientThrottleTest` (4 cases —
+      needed beyond the per-host floor. Shipped in commit 5f34b92.
+- [x] **J.4** Unit tests: `PipedClientThrottleTest` (4 cases —
       per-host interval delays second request, 429 → ThrottledException,
       403 → ThrottledException, 500 stays null-fallthrough),
       `ProviderResultTest` (4 cases — chain carries source / videoId,
       throttled provider skipped on subsequent resolves, default
       `findCover` wraps `findCoverUrl` in `Direct`, all-miss returns
-      null). Shipped in commit TBD.
-- [ ] **J.5** AVD verification on `emulator-5556`: app data cleared
+      null). Shipped across 4a9b49f + 5f34b92.
+- [x] **J.5** AVD verification on `emulator-5556`: app data cleared
       (`pm clear`), Songs tab tile mode, ran "Fill in missing covers"
       against `/sdcard/Music/tonearmboy-test-newpipe/` fixtures.
       Log screenshot `/tmp/tonearmboy-r5-log-down.png` shows the new
@@ -723,7 +723,9 @@ into 429s within a minute. Three coupled fixes shipped together.
       `/tmp/tonearmboy-r5-songs-final.png` shows the iTunes covers
       now rendering on the Pawprints / Slow Burn tiles instead of
       the flat-coloured placeholder — proves Fix 1 lands.
-- [ ] **J.6** Release cut.
+- [x] **J.6** Release cut: `v1.0-5f34b92` published at
+      https://github.com/887/tonearmboy/releases/tag/v1.0-5f34b92
+      (APK sha256 `ef5c945ba690660f5765fec6cbe4a3122601cb6799119862342b51ba3ff154e7`).
 
 ## Open questions / decisions
 
