@@ -1,6 +1,6 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: ✅ DONE (Phases A–J shipped; F deferred per plan)
+## Status: ✅ DONE (Phases A–K shipped; F deferred per plan)
 
 ## Goal
 
@@ -726,6 +726,63 @@ into 429s within a minute. Three coupled fixes shipped together.
 - [x] **J.6** Release cut: `v1.0-5f34b92` published at
       https://github.com/887/tonearmboy/releases/tag/v1.0-5f34b92
       (APK sha256 `ef5c945ba690660f5765fec6cbe4a3122601cb6799119862342b51ba3ff154e7`).
+
+### Phase K — Round 6: real-library polish from 158-track NewPipe sweep — shipped across 05b7f52 + ae3981f + 4f04c9f
+
+User ran "Fill in missing covers" against his real 158-track NewPipe
+library and screenshotted three problems: every track's artist was
+the literal `<unknown>` so Piped queries became `"<unknown> Some
+Title"` and returned nothing; each track logged TWICE (one heartbeat
++ one terminal row); no per-stage diagnostic visibility on the log
+row, so debugging required pushing files. Three fixes, one commit each.
+
+- [x] **K.1** Fix A — sanitize artist + title before Piped search.
+      `TitleSanitizer.coerceArtist` returns null for blank /
+      `<unknown>` (case-insensitive); `cleanTitle` strips emojis
+      (Symbol-other, Surrogate, Format, Modifier-symbol), replaces
+      NewPipe's `_` → space, and drops noise qualifiers like
+      `(Official Music Video)`, `(Mixed by EJ)`, `[Lyrics]`,
+      `(Extended Mix)`. `PipedClient.searchVideoId` / `searchRich`
+      and `AlbumArtFetcher.fetchTrack` funnel through `buildQuery`.
+      Unit-tested in `TitleSanitizerTest` against the real-world
+      examples from the user's screenshots. Shipped in commit 05b7f52.
+- [x] **K.2** Fix C — per-stage diagnostics on each log row. New
+      `StageDiag` sealed type (Filename / CommentTag / PipedSearch),
+      `TagScanResult` from a richer `TrackTagReader.readTextTagsRich`,
+      `PipedClient.searchRich` returning the cleaned query + result
+      count + duration mismatch. `YouTubeProvider` collects diags on
+      both hit (`ProviderResult.diags`) and miss
+      (`lastMissDiags` → `ProviderChain.resolveRichWithMissDiags`).
+      `FetchResult.NotFound` becomes a data class carrying the
+      miss-diags; `FetchResult.Saved` gains a diags list. The Settings
+      bulk-art screen renders each diag as a monospace one-liner
+      under the row:
+      ```
+      filename: no ID
+      tag-scan: no URL in 384KB
+      piped: "Boris Brejcha Some Title" → 0 results, no match
+      ```
+      Shipped in commit ae3981f.
+- [x] **K.3** Fix B — coalesce per-track entries into one row.
+      `LogEntry.trackId` is now stable; `AlbumArtBulkProgress.append`
+      replaces any existing entry sharing that trackId (and bubbles
+      it to the top) instead of appending. The Lazy list keys by
+      trackId so the row mutates in place. `processed` / `hits`
+      bump exactly once per track on the first transition to a
+      terminal state; non-track entries (Throttled notices) carry
+      trackId = null and never inflate the counter (fixed the "8/7"
+      overcount). Shipped in commit 4f04c9f.
+- [x] **K.4** AVD verification on `emulator-5556`:
+      `/tmp/tonearmboy-r6-prog-b.png` shows all three fixes
+      simultaneously — `7/7 · 2 covers found` (correct count, Fix B),
+      a Brushwork row with both `filename: no ID` and
+      `tag-scan: no URL in 384KB` under it (Fix C), no duplicate
+      "Looking up…" rows alongside their terminal updates (Fix B),
+      Pawprints / Slow Burn show "Saved from iTunes" via the
+      title-only path the artist-coerce enables (Fix A).
+- [x] **K.5** Release cut: `v1.0-4f04c9f` published at
+      https://github.com/887/tonearmboy/releases/tag/v1.0-4f04c9f
+      (APK sha256 `f6cb4d977f2eb7b9f8e464e7b46d20f8a61ba4e0ec766920f676beb9c81c5361`).
 
 ## Open questions / decisions
 
