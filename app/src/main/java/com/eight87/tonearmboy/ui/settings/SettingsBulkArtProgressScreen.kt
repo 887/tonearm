@@ -13,6 +13,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -165,22 +173,78 @@ fun SettingsBulkArtProgressScreen(
           )
         }
       } else {
-        LazyColumn(
+        val listState = rememberLazyListState()
+        // Round 9 — log appends to the bottom now. Auto-scroll to the
+        // last entry while the worker is running so the newest update
+        // is visible without manual scrolling. When idle (worker
+        // finished) we leave scroll position alone so the user can
+        // scroll back through history.
+        LaunchedEffect(log.entries.size, log.running) {
+          if (log.running && log.entries.isNotEmpty()) {
+            listState.animateScrollToItem(log.entries.size - 1)
+          }
+        }
+        BoxWithConstraints(
           modifier = Modifier
             .fillMaxSize()
             .semantics { testTag = "bulk_art_log_list" },
-          contentPadding = PaddingValues(vertical = 4.dp),
         ) {
-          // Round 6 / Fix B — stable key by trackId so the row mutates
-          // in place rather than re-mounting. Fall back to a composite
-          // key for non-track entries (kill-switch / no-providers).
-          items(
-            log.entries,
-            key = { e -> e.trackId?.let { "t-$it" } ?: "x-${e.timestampMs}-${e.albumName}-${e.outcome}" },
-          ) { entry ->
-            BulkArtLogRow(entry)
+          LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp, end = 8.dp),
+          ) {
+            items(
+              log.entries,
+              key = { e -> e.trackId?.let { "t-$it" } ?: "x-${e.timestampMs}-${e.albumName}-${e.outcome}" },
+            ) { entry ->
+              BulkArtLogRow(entry)
+            }
+            item { Spacer(Modifier.height(24.dp)) }
           }
-          item { Spacer(Modifier.height(24.dp)) }
+          // Round 9 — minimal scrollbar overlay. Thumb height is the
+          // visible-portion ratio; offset tracks the first visible
+          // item + its scroll fraction. Hidden when content fits.
+          val density = androidx.compose.ui.platform.LocalDensity.current
+          val trackHeightPx = with(density) { maxHeight.toPx() }
+          val thumb by remember(listState, trackHeightPx) {
+            derivedStateOf {
+              val info = listState.layoutInfo
+              val total = info.totalItemsCount
+              val visible = info.visibleItemsInfo
+              if (total == 0 || visible.isEmpty() || trackHeightPx <= 0f) {
+                null
+              } else {
+                val first = visible.first()
+                val avgItem = visible.sumOf { it.size } / visible.size.toFloat()
+                val contentPx = avgItem * total
+                if (contentPx <= trackHeightPx) {
+                  null
+                } else {
+                  val ratio = trackHeightPx / contentPx
+                  val thumbPx = (trackHeightPx * ratio).coerceAtLeast(24f)
+                  val scrolled = first.index * avgItem - first.offset
+                  val maxScroll = contentPx - trackHeightPx
+                  val frac = (scrolled / maxScroll).coerceIn(0f, 1f)
+                  val offsetPx = (trackHeightPx - thumbPx) * frac
+                  with(density) { thumbPx.toDp() to offsetPx.toDp() }
+                }
+              }
+            }
+          }
+          thumb?.let { (thumbHeight, thumbOffset) ->
+            Box(
+              modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(y = thumbOffset)
+                .width(4.dp)
+                .height(thumbHeight)
+                .background(
+                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                  shape = RoundedCornerShape(2.dp),
+                ),
+            )
+          }
         }
       }
     }

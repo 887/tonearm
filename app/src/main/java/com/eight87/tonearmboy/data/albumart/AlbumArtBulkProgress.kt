@@ -141,12 +141,14 @@ object AlbumArtBulkProgress {
       val existingIdx = if (tid != null) current.entries.indexOfFirst { it.trackId == tid } else -1
       val existing = if (existingIdx >= 0) current.entries[existingIdx] else null
       val nextEntries = if (existingIdx >= 0) {
-        // Replace in place + bubble to top so the most-recently-touched
-        // row stays visible.
+        // Round 9 — replace in place + bubble to **bottom** so the
+        // log reads top-to-bottom in chronological order. The progress
+        // screen auto-scrolls to the last item while running so the
+        // newest update stays visible.
         val without = current.entries.toMutableList().also { it.removeAt(existingIdx) }
-        (listOf(entry) + without).take(MAX_ENTRIES)
+        (without + entry).takeLast(MAX_ENTRIES)
       } else {
-        (listOf(entry) + current.entries).take(MAX_ENTRIES)
+        (current.entries + entry).takeLast(MAX_ENTRIES)
       }
       // Count a track as "processed" exactly once: the first time it
       // transitions to a terminal state. Non-track entries (Throttled
