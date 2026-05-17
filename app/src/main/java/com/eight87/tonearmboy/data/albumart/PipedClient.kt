@@ -287,12 +287,22 @@ class PipedClient(
     private const val TAG = "PipedClient"
     private const val DURATION_TOLERANCE_SEC: Int = 2
 
-    /** Starter pool. Walked in order; first reachable wins. */
+    /**
+     * Starter pool. Walked in order; first reachable wins.
+     *
+     * Round 8 (2026-05-17): the public Piped federation has collapsed.
+     * Of the prior pool, three are DNS-gone (`r4fo.com`,
+     * `privacydev.net`) or returning 502 (`kavin.rocks`), and
+     * `adminforge.de` redirects to a broken host. The only public
+     * instance currently serving `/search` with `200 OK` and valid
+     * JSON is `api.piped.private.coffee`. Verified manually against
+     * `?q=Clawz+SG+Flux&filter=music_songs` on 2026-05-17.
+     *
+     * `piped-instances.kavin.rocks` is the canonical liveness oracle
+     * — when this list rots again, re-derive from there.
+     */
     val DEFAULT_PIPED_INSTANCES: List<String> = listOf(
-      "https://pipedapi.kavin.rocks",
-      "https://pipedapi.adminforge.de",
-      "https://pipedapi.r4fo.com",
-      "https://api.piped.privacydev.net",
+      "https://api.piped.private.coffee",
     )
 
     private val YT_ID_ALPHABET = Regex("[A-Za-z0-9_-]{11}")
