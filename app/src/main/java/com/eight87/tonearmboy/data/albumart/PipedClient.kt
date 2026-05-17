@@ -62,9 +62,10 @@ class PipedClient(
     title: String,
     expectedDurationSec: Int? = null,
   ): String? = withContext(Dispatchers.IO) {
-    val q = listOfNotNull(artist?.takeIf { it.isNotBlank() }, title)
-      .joinToString(" ")
-      .ifBlank { return@withContext null }
+    // Round 6 / Fix A — coerce `<unknown>` artist + strip emoji /
+    // noise qualifiers / underscores from the title before encoding.
+    val q = TitleSanitizer.buildQuery(artist, title)
+    if (q.isBlank()) return@withContext null
     val encoded = java.net.URLEncoder.encode(q, "UTF-8")
 
     // Try last-good first (cheap optimisation across consecutive
@@ -92,6 +93,94 @@ class PipedClient(
       }
     }
     null
+  }
+
+  /**
+   * Round 6 / Fix C — richer search that returns the cleaned query,
+   * the result count, the matched id (or null), and the duration
+   * mismatch (signed seconds) of the picked result, all rolled into
+   * a [StageDiag.PipedSearch]. The bulk-art log uses this to render
+   * `piped: "Some Title" → 7 results (id abcDEFghi12, +1 s)`.
+   *
+   * Artist is coerced to null via [TitleSanitizer.coerceArtist] (the
+   * MediaStore `<unknown>` placeholder turns into a title-only search).
+   * The title is run through [TitleSanitizer.cleanTitle].
+   */
+  suspend fun searchRich(
+    artist: String?,
+    title: String,
+    expectedDurationSec: Int? = null,
+  ): StageDiag.PipedSearch = withContext(Dispatchers.IO) {
+    val query = TitleSanitizer.buildQuery(artist, title)
+    if (query.isBlank()) {
+      return@withContext StageDiag.PipedSearch(
+        query = query,
+        results = 0,
+        matchedId = null,
+        durationMismatchSec = null,
+      )
+    }
+    val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+    val order = listOfNotNull(lastGood.get()) + instances.filter { it != lastGood.get() }
+    var lastResults = 0
+    var lastMismatch: Int? = null
+    for (host in order) {
+      throttle(host)
+      val url = "$host/search?q=$encoded&filter=music_songs"
+      val attempt = runCatching { searchHostRich(url, expectedDurationSec) }
+      val err = attempt.exceptionOrNull()
+      if (err is ThrottledException) throw err
+      val hit = attempt.getOrNull()
+      if (hit != null) {
+        lastResults = hit.results
+        lastMismatch = hit.durationMismatchSec
+        if (hit.matchedId != null) {
+          lastGood.set(host)
+          return@withContext hit.copy(query = query)
+        }
+      }
+    }
+    StageDiag.PipedSearch(
+      query = query,
+      results = lastResults,
+      matchedId = null,
+      durationMismatchSec = lastMismatch,
+    )
+  }
+
+  /**
+   * Round 6 / Fix C — per-call diagnostic info (result count + match
+   * + duration mismatch). Returns null when the host was unreachable
+   * / non-success so the caller can walk to the next instance.
+   */
+  private fun searchHostRich(url: String, expectedDurationSec: Int?): StageDiag.PipedSearch? {
+    val req = Request.Builder()
+      .url(url)
+      .header("Accept", "application/json")
+      .build()
+    client.newCall(req).execute().use { resp ->
+      if (resp.code == 429 || resp.code == 403) {
+        throw ThrottledException("Piped responded ${resp.code} from $url")
+      }
+      if (!resp.isSuccessful) return null
+      val body = resp.body?.string() ?: return null
+      val parsed = json.decodeFromString<PipedSearchResponse>(body)
+      val streamItems = parsed.items.filter { it.type == null || it.type == "stream" }
+      if (streamItems.isEmpty()) {
+        return StageDiag.PipedSearch(query = "", results = 0, matchedId = null, durationMismatchSec = null)
+      }
+      val picked = pickByDuration(streamItems, expectedDurationSec)
+      val id = extractVideoId(picked.url)
+      val mismatch = if (expectedDurationSec != null && picked.duration != null) {
+        picked.duration - expectedDurationSec
+      } else null
+      return StageDiag.PipedSearch(
+        query = "",
+        results = streamItems.size,
+        matchedId = id,
+        durationMismatchSec = mismatch,
+      )
+    }
   }
 
   /**
