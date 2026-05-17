@@ -112,6 +112,13 @@ sealed interface StageDiag {
     val results: Int,
     val matchedId: String?,
     val durationMismatchSec: Int? = null,
+    /**
+     * Round 10 — which Piped host actually answered (or `"unreachable"`
+     * when every instance in the pool failed). Surfaced in the log so
+     * the user can diagnose stale-instance settings without pulling
+     * preferences off the device.
+     */
+    val host: String? = null,
   ) : StageDiag
 }
 

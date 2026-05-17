@@ -124,6 +124,7 @@ class PipedClient(
     val order = listOfNotNull(lastGood.get()) + instances.filter { it != lastGood.get() }
     var lastResults = 0
     var lastMismatch: Int? = null
+    var lastHost: String? = null
     for (host in order) {
       throttle(host)
       val url = "$host/search?q=$encoded&filter=music_songs"
@@ -134,9 +135,10 @@ class PipedClient(
       if (hit != null) {
         lastResults = hit.results
         lastMismatch = hit.durationMismatchSec
+        lastHost = host
         if (hit.matchedId != null) {
           lastGood.set(host)
-          return@withContext hit.copy(query = query)
+          return@withContext hit.copy(query = query, host = host)
         }
       }
     }
@@ -145,6 +147,7 @@ class PipedClient(
       results = lastResults,
       matchedId = null,
       durationMismatchSec = lastMismatch,
+      host = lastHost ?: "unreachable: ${order.joinToString(",") { it.substringAfter("://").substringBefore('/') }}",
     )
   }
 

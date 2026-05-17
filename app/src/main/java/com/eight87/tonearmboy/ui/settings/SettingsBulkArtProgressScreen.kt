@@ -349,7 +349,13 @@ private fun formatDiag(diag: StageDiag): String = when (diag) {
       diag.matchedId != null -> " → id ${diag.matchedId}"
       else -> " → ${diag.results} results, no match"
     }
-    "piped: \"$q\"$tail"
+    // Round 10 — surface which instance answered (or that the pool was
+    // unreachable) so a screenshot diagnoses stale-instance settings.
+    val hostTag = diag.host?.let { h ->
+      val short = if (h.startsWith("unreachable")) h else h.substringAfter("://").substringBefore('/')
+      " @ $short"
+    } ?: ""
+    "piped$hostTag: \"$q\"$tail"
   }
 }
 
