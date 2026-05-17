@@ -1,6 +1,27 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: ✅ DONE (Phases A–K shipped; F deferred per plan)
+## Status: ✅ DONE (Phases A–L shipped; F deferred per plan)
+
+### Phase L — Round 7: search Piped by track title not album name — shipped in commit f7d741a
+
+NewPipe writes `album = "Music"` on every YouTube download, so the
+per-track Piped fallback was searching the literal query `"Music"`
+for every single track (visible in the v1.0-4f04c9f progress log:
+every row reads `piped: "Music" → 0 results`). Threaded `trackTitle`
+through `CoverArtRequest`; `YouTubeProvider` now prefers it over
+`albumName`.
+
+- [x] **L.1** Add `trackTitle: String? = null` to `CoverArtRequest`.
+- [x] **L.2** Populate `trackTitle = track.title` in
+  `AlbumArtFetcher.fetchTrack`.
+- [x] **L.3** `YouTubeProvider` prefers `req.trackTitle` over
+  `req.albumName` for the Piped search query.
+- [x] **L.4** Release `v1.0-f7d741a` cut for Obtainium.
+
+Open: tag-scan continues to return `no URL in 384KB` on the user's
+real library. User's hypothesis (likely correct): older NewPipe
+versions did not write the source URL to the COMMENT/purl tag. No
+code change — title-based Piped search rescues that path.
 
 ## Goal
 
