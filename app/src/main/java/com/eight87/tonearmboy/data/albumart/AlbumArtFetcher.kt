@@ -217,14 +217,14 @@ class AlbumArtFetcher(
     val key = "track-${track.id}"
     return AlbumArtFetchRegistry.withFetch(key) {
       val req = CoverArtRequest(
-        // The album/artist fields feed the Piped-search fallback when
-        // the filename has no embedded YouTube id. Track title isn't
-        // a CoverArtRequest field; we keep the search shape identical
-        // to the album path so each provider's chain hits the same
-        // signatures. Round 6 / Fix A: coerce the MediaStore
-        // `<unknown>` placeholder to null so Piped sees a title-only
-        // query and iTunes/MusicBrainz don't waste a round-trip on it.
-        albumName = track.album.orEmpty().ifBlank { track.title },
+        // `albumName` is *always* the album. Per-track searches ride on
+        // [trackTitle] below; YouTubeProvider prefers trackTitle, while
+        // MusicBrainz/iTunes need a real album name and would mis-match
+        // if we substituted the track title here. (Pre-Round 11 this
+        // fell back to track.title when album was blank — that hack
+        // predates the trackTitle field; removing it keeps each field
+        // honest.) Round 6 / Fix A: coerce `<unknown>` artist to null.
+        albumName = track.album.orEmpty(),
         albumArtist = TitleSanitizer.coerceArtist(track.albumArtist ?: track.artist),
         sampleTrackPath = track.data,
         musicBrainzMinScore = musicBrainzMinScore,

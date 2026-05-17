@@ -143,6 +143,13 @@ enum class ProviderKind {
  * an embedded video ID without firing any network requests.
  */
 data class CoverArtRequest(
+  /**
+   * Album name — always the actual album, never substituted with the
+   * track title. MusicBrainz and iTunes treat this as a release/album
+   * query and would mis-match if a track title were passed here.
+   * YouTubeProvider prefers [trackTitle] over this for Piped search.
+   * Empty string when the source has no album tag.
+   */
   val albumName: String,
   val albumArtist: String?,
   val sampleTrackPath: String?,
