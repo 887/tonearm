@@ -215,6 +215,11 @@ internal fun TracksListContent(
         },
         onItemLongClick = { track -> selection.add(track.id) },
         selection = selection,
+        // Round 5 — Songs tab passes its TrackSource so tile cells can
+        // resolve the per-track cover override; without this, covers
+        // fetched by the bulk-art worker stay invisible and the tile
+        // keeps rendering the (shared NewPipe) album fallback.
+        trackSource = trackSource,
       )
     }
   }
@@ -255,6 +260,10 @@ internal class TracksTabSpec(
     subtitle = item.artist?.takeIf(String::isNotBlank),
     artUri = null,
     albumArtId = item.mediaStoreAlbumId,
+    // Round 5 — flag the tile as a song so CoverArt subscribes to the
+    // per-track cover override and renders covers fetched by the bulk
+    // worker instead of the (often-shared NewPipe) album fallback.
+    trackId = item.id,
   )
 
   @Composable

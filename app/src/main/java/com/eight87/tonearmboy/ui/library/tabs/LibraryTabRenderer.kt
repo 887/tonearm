@@ -56,6 +56,13 @@ fun <T : Any> LibraryTabRenderer(
   modifier: Modifier = Modifier,
   selection: SelectionState<Long>? = null,
   onItemLongClick: ((T) -> Unit)? = null,
+  /**
+   * Round 5 — Songs tab passes its [com.eight87.tonearmboy.data.TrackSource]
+   * here so tile cells can subscribe to per-track cover overrides and
+   * render covers fetched by the bulk-art worker. Other tabs leave it
+   * null (album fallback only).
+   */
+  trackSource: com.eight87.tonearmboy.data.TrackSource? = null,
 ) {
   if (items.isEmpty()) {
     EmptyState(spec.emptyMessageRes)
@@ -134,6 +141,7 @@ fun <T : Any> LibraryTabRenderer(
         tileOverflowMenu = tileOverflowMenu,
         inSelectionMode = selection?.inSelectionMode ?: false,
         isSelected = selection?.let { sel -> { tile -> sel.contains(tile.id) } },
+        trackSource = trackSource,
         modifier = Modifier.fillMaxSize().padding(horizontal = SettingsDimens.PagePadding),
       )
     } else {

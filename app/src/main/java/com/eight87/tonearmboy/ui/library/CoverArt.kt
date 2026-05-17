@@ -28,6 +28,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.size.Size
+import com.eight87.tonearmboy.data.TrackSource
 import com.eight87.tonearmboy.data.albumKey
 import com.eight87.tonearmboy.data.albumart.AlbumArtFetchRegistry
 import com.eight87.tonearmboy.ui.settings.AlbumCoversMode
@@ -81,6 +82,20 @@ fun CoverArt(
    */
   albumName: String? = null,
   albumArtist: String? = null,
+  /**
+   * Round 5 — when the cell represents an individual song and
+   * [trackSource] is wired, CoverArt subscribes to
+   * [TrackSource.trackCoverUriFlow] and prefers any pinned per-track
+   * cover URI (set by the user or by the bulk-art worker) over
+   * [coverUriOverride] and the album fallback. Cascade is:
+   *
+   *   pinned-track > pinned-album (`coverUriOverride`) > album-art > placeholder
+   *
+   * `null` `trackId` keeps the legacy album-level behaviour intact for
+   * the Albums / Artists / Genres / Playlists tabs.
+   */
+  trackId: Long? = null,
+  trackSource: TrackSource? = null,
 ) {
   Box(
     modifier = modifier
@@ -98,16 +113,27 @@ fun CoverArt(
       key in keys
     } else false
 
+    // Round 5 — per-track cover override takes precedence over the
+    // album fallback when the cell represents a song. Collected here
+    // (before the placeholder branch) so a pinned track cover lights
+    // up the tile even when the song has no MediaStore albumId at all.
+    val perTrackUri: String? = if (trackId != null && trackSource != null) {
+      val flow = remember(trackId) { trackSource.trackCoverUriFlow(trackId) }
+      val state by flow.collectAsStateWithLifecycle(initialValue = null as String?)
+      state?.takeIf { it.isNotBlank() }
+    } else null
+
     val showPlaceholder = mode == AlbumCoversMode.Off ||
-      (albumId == null && coverUriOverride.isNullOrBlank())
+      (albumId == null && coverUriOverride.isNullOrBlank() && perTrackUri.isNullOrBlank())
     if (showPlaceholder) {
       if (fetching) FetchingIndicator(size) else Placeholder(size)
       return@Box
     }
 
     val context = LocalContext.current
-    val uri: Any = remember(albumId, coverUriOverride) {
-      coverUriOverride?.takeIf { it.isNotBlank() }
+    val uri: Any = remember(albumId, coverUriOverride, perTrackUri) {
+      perTrackUri?.takeIf { it.isNotBlank() }
+        ?: coverUriOverride?.takeIf { it.isNotBlank() }
         ?: albumArtUri(albumId ?: 0L)
     }
     var coilState by remember(uri) { mutableStateOf<CoilLoadPhase>(CoilLoadPhase.Loading) }

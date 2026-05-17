@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.eight87.tonearmboy.data.TrackSource
 import com.eight87.tonearmboy.ui.settings.AlbumCoversMode
 
 /**
@@ -84,6 +85,14 @@ data class TileItem(
    * generally pre-resolve to [artUri] (or the letter avatar fallback).
    */
   val albumArtId: Long?,
+  /**
+   * Round 5 — when non-null, the tile represents an individual song
+   * and [CoverArt] subscribes to the per-track cover override so
+   * pinned-per-track URIs (set by the user or by the bulk-art worker)
+   * render in place of the album fallback. Only the Songs tab sets
+   * this; Albums / Artists / Genres / Playlists leave it null.
+   */
+  val trackId: Long? = null,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -122,6 +131,14 @@ fun LibraryTileGrid(
    * for tabs that don't expose selection — Albums, Artists, Genres).
    */
   isSelected: ((TileItem) -> Boolean)? = null,
+  /**
+   * Round 5 — optional TrackSource handle, threaded down to per-tile
+   * [CoverArt] so song tiles (whose [TileItem.trackId] is non-null)
+   * can subscribe to the per-track cover override and render the
+   * cover the bulk-art worker fetched. Null = legacy behaviour
+   * (album-cover-only).
+   */
+  trackSource: TrackSource? = null,
 ) {
   // Build the (header letter, runStartIndex, runLength) tuples once so
   // both the renderer and the alphabet helpers can reason about the
@@ -142,7 +159,7 @@ fun LibraryTileGrid(
   ) {
     if (groups.isEmpty()) {
       items(items = tiles, key = { it.id }) { tile ->
-        TileCell(tile, onTileClick, onTileLongClick, albumCoversMode, tileOverflowMenu, inSelectionMode, isSelected?.invoke(tile) ?: false)
+        TileCell(tile, onTileClick, onTileLongClick, albumCoversMode, tileOverflowMenu, inSelectionMode, isSelected?.invoke(tile) ?: false, trackSource)
       }
     } else {
       groups.forEach { group ->
@@ -159,7 +176,7 @@ fun LibraryTileGrid(
         }
         val slice = tiles.subList(group.start, group.start + group.length)
         items(items = slice, key = { it.id }) { tile ->
-          TileCell(tile, onTileClick, onTileLongClick, albumCoversMode, tileOverflowMenu, inSelectionMode, isSelected?.invoke(tile) ?: false)
+          TileCell(tile, onTileClick, onTileLongClick, albumCoversMode, tileOverflowMenu, inSelectionMode, isSelected?.invoke(tile) ?: false, trackSource)
         }
       }
     }
@@ -176,6 +193,7 @@ private fun TileCell(
   overflowMenu: (@Composable (TileItem, () -> Unit) -> Unit)? = null,
   inSelectionMode: Boolean = false,
   selected: Boolean = false,
+  trackSource: TrackSource? = null,
 ) {
   var menuOpen by remember { mutableStateOf(false) }
   // Selection visual: dim the cover slightly + paint a 3-dp primary
@@ -234,6 +252,12 @@ private fun TileCell(
           // ever fire for an album lookup anyway).
           albumName = item.title,
           albumArtist = item.subtitle,
+          // Round 5 — Songs tiles set TileItem.trackId so per-track
+          // covers fetched by the bulk worker render here instead of
+          // the album fallback (most NewPipe downloads share one
+          // synthetic album, so the album fallback was misleading).
+          trackId = item.trackId,
+          trackSource = trackSource,
           modifier = Modifier.fillMaxSize().alpha(coverAlpha),
         )
         else -> Text(
