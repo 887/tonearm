@@ -84,8 +84,13 @@ class YouTubeProvider(
     // rest of the bulk run). On throttle we still stash the diags so
     // the log row shows the filename + tag-scan history that ran
     // before Piped blew up.
+    // Round 7 — prefer the track title over the album name. NewPipe
+    // sets `album = "Music"` on every YouTube download, so without this
+    // every per-track Piped search collapses to the literal query
+    // `Music` and returns the same garbage top-N for every track.
+    val searchTitle = req.trackTitle?.takeIf { it.isNotBlank() } ?: req.albumName
     val pipedDiag = try {
-      piped.searchRich(req.albumArtist, req.albumName, req.expectedDurationSec)
+      piped.searchRich(req.albumArtist, searchTitle, req.expectedDurationSec)
     } catch (t: ThrottledException) {
       lastMissDiags = diags.toList()
       throw t

@@ -231,6 +231,9 @@ class AlbumArtFetcher(
         // Round 4 — duration affinity for Piped search. Zero / negative
         // values mean "unknown" → null so the filter is skipped.
         expectedDurationSec = (track.durationMs / 1000).toInt().takeIf { it > 0 },
+        // Round 7 — pass the actual track title so YouTubeProvider can
+        // search Piped with the song name instead of `album = "Music"`.
+        trackTitle = track.title,
       )
       val (resolved, missDiags) = chain.resolveRichWithMissDiags(req, throttled)
       if (resolved == null) {

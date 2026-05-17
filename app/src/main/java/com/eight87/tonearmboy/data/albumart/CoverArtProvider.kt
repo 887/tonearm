@@ -149,6 +149,14 @@ data class CoverArtRequest(
    * legacy single-service path).
    */
   val expectedDurationSec: Int? = null,
+  /**
+   * Round 7 — per-track title. Populated by the per-track fetch path;
+   * null for album-level requests. YouTubeProvider prefers this over
+   * [albumName] for Piped search because NewPipe writes a generic
+   * `album = "Music"` on every YouTube download, which would otherwise
+   * make every per-track search collapse to the literal query `Music`.
+   */
+  val trackTitle: String? = null,
 )
 
 /**
