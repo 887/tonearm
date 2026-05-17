@@ -76,6 +76,20 @@ object AlbumArtBulkProgress {
      * user wants to know exactly which video the chain picked.
      */
     val videoId: String? = null,
+    /**
+     * Round 6 / Fix B — stable per-track id so a Running entry can be
+     * **replaced in place** by its Hit / Miss / etc. terminal update.
+     * Null for non-track entries (kill-switch skip, no-providers skip
+     * — those don't get coalesced).
+     */
+    val trackId: Long? = null,
+    /**
+     * Round 6 / Fix C — per-stage diagnostics collected by the
+     * provider chain. Rendered as a small monospace sub-block under
+     * the row so a screenshot shows the full story without the user
+     * pulling a file off the device.
+     */
+    val diags: List<StageDiag> = emptyList(),
   )
 
   /**
@@ -109,16 +123,45 @@ object AlbumArtBulkProgress {
   }
 
   /**
-   * Append a log entry; bumps [BulkLog.processed] for terminal outcomes
-   * ([Outcome.Hit] / [Outcome.Miss] / [Outcome.Skipped] / [Outcome.Error]),
-   * not for [Outcome.Running] heartbeats.
+   * Append OR replace-in-place a log entry.
+   *
+   * Round 6 / Fix B — when [LogEntry.trackId] is non-null AND an
+   * existing entry shares the same trackId, the existing entry is
+   * **replaced** (and bubbled to the top) instead of appended. This
+   * collapses the "Looking up… → Saved/Miss" two-row sequence into
+   * a single row per track that mutates as the worker progresses.
+   *
+   * `processed` is bumped only when the row's terminal state lands
+   * for the first time. `hits` is bumped only when the row's first
+   * terminal state is a [Outcome.Hit].
    */
   fun append(entry: LogEntry) {
     _log.update { current ->
-      val nextEntries = (listOf(entry) + current.entries).take(MAX_ENTRIES)
-      val terminal = entry.outcome != Outcome.Running
-      val processed = if (terminal) current.processed + 1 else current.processed
-      val hits = if (entry.outcome == Outcome.Hit) current.hits + 1 else current.hits
+      val tid = entry.trackId
+      val existingIdx = if (tid != null) current.entries.indexOfFirst { it.trackId == tid } else -1
+      val existing = if (existingIdx >= 0) current.entries[existingIdx] else null
+      val nextEntries = if (existingIdx >= 0) {
+        // Replace in place + bubble to top so the most-recently-touched
+        // row stays visible.
+        val without = current.entries.toMutableList().also { it.removeAt(existingIdx) }
+        (listOf(entry) + without).take(MAX_ENTRIES)
+      } else {
+        (listOf(entry) + current.entries).take(MAX_ENTRIES)
+      }
+      // Count a track as "processed" exactly once: the first time it
+      // transitions to a terminal state. Non-track entries (Throttled
+      // notices, kill-switch / no-providers skips — they carry
+      // `trackId = null`) never bump `processed` so they can't push
+      // the counter past `totalTracks`.
+      val wasTerminal = existing != null && existing.outcome != Outcome.Running
+      val nowTerminal = entry.outcome != Outcome.Running
+      val newlyTerminal = nowTerminal && !wasTerminal && tid != null
+      val processed = if (newlyTerminal) current.processed + 1 else current.processed
+      // Count a hit exactly once per track (and only when the FIRST
+      // terminal transition was a Hit — a later replay can't flip it).
+      val hits = if (newlyTerminal && entry.outcome == Outcome.Hit) {
+        current.hits + 1
+      } else current.hits
       current.copy(
         entries = nextEntries,
         processed = processed,

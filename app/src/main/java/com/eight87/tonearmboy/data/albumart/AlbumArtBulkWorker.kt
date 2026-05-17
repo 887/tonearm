@@ -111,6 +111,7 @@ class AlbumArtBulkWorker(
               albumName = track.album.orEmpty(),
               albumArtist = track.albumArtist ?: track.artist,
               trackTitle = track.title,
+              trackId = track.id,
               providerKind = null,
               outcome = AlbumArtBulkProgress.Outcome.Skipped,
               note = when (choice) {
@@ -124,13 +125,16 @@ class AlbumArtBulkWorker(
         }
 
         // Heartbeat — per-song progress so the user sees activity even
-        // when the chain is mid-rate-limit.
+        // when the chain is mid-rate-limit. Round 6 / Fix B: same
+        // trackId as the eventual terminal entry, so the terminal
+        // update replaces this row in place instead of appending.
         AlbumArtBulkProgress.append(
           AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
             albumName = track.album.orEmpty(),
             albumArtist = track.albumArtist ?: track.artist,
             trackTitle = track.title,
+            trackId = track.id,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Running,
             note = "Looking up…",
@@ -153,6 +157,7 @@ class AlbumArtBulkWorker(
               albumName = track.album.orEmpty(),
               albumArtist = track.albumArtist ?: track.artist,
               trackTitle = track.title,
+              trackId = track.id,
               providerKind = null,
               outcome = AlbumArtBulkProgress.Outcome.Error,
               note = t.message ?: t::class.simpleName,
@@ -184,17 +189,20 @@ class AlbumArtBulkWorker(
             albumName = track.album.orEmpty(),
             albumArtist = track.albumArtist ?: track.artist,
             trackTitle = track.title,
+            trackId = track.id,
             providerKind = result.providerKind,
             outcome = AlbumArtBulkProgress.Outcome.Hit,
             note = noteForSaved(result),
             source = result.source,
             videoId = result.videoId,
+            diags = result.diags,
           )
-          AlbumArtFetcher.FetchResult.NotFound -> AlbumArtBulkProgress.LogEntry(
+          is AlbumArtFetcher.FetchResult.NotFound -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
             albumName = track.album.orEmpty(),
             albumArtist = track.albumArtist ?: track.artist,
             trackTitle = track.title,
+            trackId = track.id,
             providerKind = null,
             // YouTube-specific phrasing when the chain has only YouTube
             // and it returned nothing — the user reads "No YouTube
@@ -205,12 +213,14 @@ class AlbumArtBulkWorker(
             } else AlbumArtBulkProgress.Outcome.Miss,
             note = if (configs.singleEnabledIsYouTube()) "No YouTube video found"
             else "No provider returned a match",
+            diags = result.diags,
           )
           AlbumArtFetcher.FetchResult.ServiceDisabled -> AlbumArtBulkProgress.LogEntry(
             timestampMs = System.currentTimeMillis(),
             albumName = track.album.orEmpty(),
             albumArtist = track.albumArtist ?: track.artist,
             trackTitle = track.title,
+            trackId = track.id,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Skipped,
             note = "Service disabled",
@@ -220,6 +230,7 @@ class AlbumArtBulkWorker(
             albumName = track.album.orEmpty(),
             albumArtist = track.albumArtist ?: track.artist,
             trackTitle = track.title,
+            trackId = track.id,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Error,
             note = result.reason,
@@ -229,6 +240,7 @@ class AlbumArtBulkWorker(
             albumName = track.album.orEmpty(),
             albumArtist = track.albumArtist ?: track.artist,
             trackTitle = track.title,
+            trackId = track.id,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Skipped,
             note = "Already pinned",
@@ -238,6 +250,7 @@ class AlbumArtBulkWorker(
             albumName = track.album.orEmpty(),
             albumArtist = track.albumArtist ?: track.artist,
             trackTitle = track.title,
+            trackId = track.id,
             providerKind = null,
             outcome = AlbumArtBulkProgress.Outcome.Skipped,
             note = "Marked intentionally empty",

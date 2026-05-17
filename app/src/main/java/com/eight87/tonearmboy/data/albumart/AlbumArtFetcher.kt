@@ -147,7 +147,7 @@ class AlbumArtFetcher(
     req: CoverArtRequest,
     chain: ProviderChain,
   ): FetchResult {
-    val resolved = chain.resolveRich(req) ?: return FetchResult.NotFound
+    val resolved = chain.resolveRich(req) ?: return FetchResult.NotFound()
     val coverUrl = resolved.url
     val providerKind = resolved.kind
 
@@ -232,11 +232,15 @@ class AlbumArtFetcher(
         // values mean "unknown" → null so the filter is skipped.
         expectedDurationSec = (track.durationMs / 1000).toInt().takeIf { it > 0 },
       )
-      val resolved = chain.resolveRich(req, throttled) ?: return@withFetch FetchResult.NotFound
+      val (resolved, missDiags) = chain.resolveRichWithMissDiags(req, throttled)
+      if (resolved == null) {
+        return@withFetch FetchResult.NotFound(diags = missDiags)
+      }
       val coverUrl = resolved.url
       val providerKind = resolved.kind
       val resolutionSource = resolved.source
       val videoId = resolved.videoId
+      val hitDiags = resolved.diags
 
       val cacheDir = File(context.cacheDir, "track_art").also { it.mkdirs() }
       val target = File(cacheDir, "${track.id}.jpg")
@@ -253,7 +257,7 @@ class AlbumArtFetcher(
 
       cropToSquareIfNeeded(target)
       sink.setTrackCoverUri(track.id, target.toURI().toString())
-      FetchResult.Saved(target.toURI().toString(), providerKind, resolutionSource, videoId)
+      FetchResult.Saved(target.toURI().toString(), providerKind, resolutionSource, videoId, hitDiags)
     }
   }
 
@@ -304,10 +308,19 @@ class AlbumArtFetcher(
       val source: ResolutionSource? = null,
       /** Round 5 — YouTube video id when known; null otherwise. */
       val videoId: String? = null,
+      /** Round 6 / Fix C — per-stage diagnostics from the winning provider. */
+      val diags: List<StageDiag> = emptyList(),
     ) : FetchResult
     data object AlreadyPinned : FetchResult
     data object IntentionallyEmpty : FetchResult
-    data object NotFound : FetchResult
+    /**
+     * No provider in the chain returned a match.
+     *
+     * Round 6 / Fix C — [diags] carries the miss-stage diagnostics
+     * (filename / tag-scan / piped) so the log row tells the full
+     * story.
+     */
+    data class NotFound(val diags: List<StageDiag> = emptyList()) : FetchResult
     data object ServiceDisabled : FetchResult
     data class Failed(val reason: String) : FetchResult
   }
