@@ -73,7 +73,7 @@
   <string name="settings_custom_chrome_tint_unset">Album art</string>
 
   <!-- Theme picker labels. -->
-  <string name="settings_lookandfeel_theme_automatic">Automatic</string>
+  <string name="settings_lookandfeel_theme_automatic">Follow system</string>
   <string name="settings_lookandfeel_theme_light">Light</string>
   <string name="settings_lookandfeel_theme_dark">Dark</string>
 

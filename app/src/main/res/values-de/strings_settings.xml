@@ -66,7 +66,7 @@
   <string name="settings_lookandfeel_album_art_tint_subtitle">Flächen an die dominante Farbe des laufenden Titels anpassen.</string>
 
   <!-- Theme picker labels. -->
-  <string name="settings_lookandfeel_theme_automatic">Automatisch</string>
+  <string name="settings_lookandfeel_theme_automatic">Systemeinstellung</string>
   <string name="settings_lookandfeel_theme_light">Hell</string>
   <string name="settings_lookandfeel_theme_dark">Dunkel</string>
 
