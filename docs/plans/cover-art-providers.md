@@ -1,6 +1,6 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: ✅ DONE (Phases A–I shipped; F deferred per plan)
+## Status: 🟡 IN PROGRESS — Round 5 / Phase J landing (Phases A–I shipped; F deferred per plan)
 
 ## Goal
 
@@ -662,6 +662,68 @@ markers instead — container-agnostic, MIT-clean, no new deps.
 - [x] **I.9** Release cut: `v1.0-aebc674` published at
       https://github.com/887/tonearmboy/releases/tag/v1.0-aebc674
       (APK sha256 `c464bc0c65018f88d9e89d35eb97edc53c24f61a08fc83cf0891b546c0787a12`).
+
+### Phase J — Round 5: render per-track covers + clearer log + rate limit
+
+User feedback after Round 4 / v1.0-aebc674 (AVD screenshot 2026-05-17):
+the per-track covers the worker reports saving (`8/7 · 2 covers found`)
+were **not rendering** in the Songs tab tile grid — `CoverArt` only
+resolved `album.coverUri` and the per-track URI in `track_covers`
+stayed invisible. Plus log outcomes were a flat
+`Hit / Miss / Skipped / Error` 4-way that didn't name the stage that
+fired ("filename" vs "COMMENT tag" vs "Piped search") and there was
+no rate-limit politeness across the worker's ~1 req/sec/track loop —
+on the user's 2000-song library this would hammer Piped instances
+into 429s within a minute. Three coupled fixes shipped together.
+
+- [ ] **J.1** `TrackSource.trackCoverUriFlow(trackId): Flow<String?>`
+      with a default impl composing against `trackCoverChoice` so all
+      implementations + test fakes still work. `CoverArt` gained
+      `trackId` + `trackSource` parameters; when present, the per-
+      track URI takes precedence over the album fallback.
+      `TileItem.trackId` + thread-through via `LibraryTileGrid` and
+      `LibraryTabRenderer`; only the Songs `TracksTabSpec.toTile`
+      populates `trackId`, other tabs stay album-only. Shipped in
+      commit TBD.
+- [ ] **J.2** `CoverArtProvider.findCover(req): ProviderResult?` —
+      richer return shape carrying `ResolutionSource` (`Filename` /
+      `CommentTag` / `PipedSearch` / `Direct`) + optional `videoId`.
+      Legacy `findCoverUrl` interface method kept as a default
+      wrapper. `ProviderChain.resolveRich` returns the rich result
+      (and accepts a run-scoped `throttled: MutableSet<ProviderKind>`).
+      `AlbumArtBulkProgress.Outcome` extended with `NoIdResolved` +
+      `Throttled` variants; `LogEntry` gained `source` + `videoId`.
+      `SettingsBulkArtProgressScreen` row composes notes as
+      "Saved from YouTube (Piped search) · id: dQw4w9WgXcQ".
+      Shipped in commit TBD.
+- [ ] **J.3** `PipedClient.perHostMinIntervalMs` (default 1000 ms)
+      throttle via `delay()` before each instance call;
+      `ConcurrentHashMap<String, Long>` per-host last-request timestamp.
+      HTTP 429 / 403 lifts into `ThrottledException` which the chain
+      catches and adds to the run-scoped throttled set so subsequent
+      track lookups skip that provider. `YouTubeProvider.probeMaxRes`
+      (default false) — skip the HEAD ladder and return `hqdefault.jpg`
+      directly, which exists for every video. Bulk worker is
+      sequential (verified in `doWork`) so no extra inter-track pacing
+      needed beyond the per-host floor. Shipped in commit TBD.
+- [ ] **J.4** Unit tests: `PipedClientThrottleTest` (4 cases —
+      per-host interval delays second request, 429 → ThrottledException,
+      403 → ThrottledException, 500 stays null-fallthrough),
+      `ProviderResultTest` (4 cases — chain carries source / videoId,
+      throttled provider skipped on subsequent resolves, default
+      `findCover` wraps `findCoverUrl` in `Direct`, all-miss returns
+      null). Shipped in commit TBD.
+- [ ] **J.5** AVD verification on `emulator-5556`: app data cleared
+      (`pm clear`), Songs tab tile mode, ran "Fill in missing covers"
+      against `/sdcard/Music/tonearmboy-test-newpipe/` fixtures.
+      Log screenshot `/tmp/tonearmboy-r5-log-down.png` shows the new
+      "Saved from iTunes" labels for Slow Burn + Pawprints in Snow,
+      plus a Throttled entry "YouTube throttled (429/403) — skipping
+      for the rest of the run". Tile screenshot
+      `/tmp/tonearmboy-r5-songs-final.png` shows the iTunes covers
+      now rendering on the Pawprints / Slow Burn tiles instead of
+      the flat-coloured placeholder — proves Fix 1 lands.
+- [ ] **J.6** Release cut.
 
 ## Open questions / decisions
 

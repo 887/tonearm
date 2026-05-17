@@ -1,15 +1,18 @@
 package com.eight87.tonearmboy.data.albumart
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
+import kotlin.math.max
 
 /**
  * Cover-art Phase B — Piped search client.
@@ -31,9 +34,23 @@ import kotlin.math.abs
 class PipedClient(
   private val instances: List<String> = DEFAULT_PIPED_INSTANCES,
   private val client: OkHttpClient = defaultClient(),
+  /**
+   * Round 5 — minimum interval (ms) between two consecutive requests
+   * to the same Piped host. Default 1000 ms keeps us at ~1 req/sec/
+   * instance, the courtesy floor Piped operators ask for. Lowering
+   * this risks 429s / temp-bans across the public pool.
+   */
+  private val perHostMinIntervalMs: Long = 1000L,
 ) {
   private val json = Json { ignoreUnknownKeys = true }
   private val lastGood = AtomicReference<String?>(null)
+
+  /**
+   * Round 5 — per-host last-request wall-clock for the throttle.
+   * `ConcurrentHashMap` so the worker (single-threaded today, but
+   * defensive for any future concurrent fetcher) is safe.
+   */
+  private val lastRequestMs: ConcurrentHashMap<String, Long> = ConcurrentHashMap()
 
   /**
    * Search Piped for the music-songs track matching [artist] + [title].
@@ -55,8 +72,20 @@ class PipedClient(
     // declaration order and update the cached pointer on success.
     val order = listOfNotNull(lastGood.get()) + instances.filter { it != lastGood.get() }
     for (host in order) {
+      // Round 5 — per-host courtesy delay. The first request to a host
+      // goes through immediately; subsequent ones wait so we never
+      // exceed ~1 req/sec/instance across the bulk worker's track loop.
+      throttle(host)
       val url = "$host/search?q=$encoded&filter=music_songs"
-      val id = runCatching { search(url, expectedDurationSec) }.getOrNull()
+      val attempt = runCatching { search(url, expectedDurationSec) }
+      val err = attempt.exceptionOrNull()
+      if (err is ThrottledException) {
+        // Re-thrown to the YouTube provider → chain, which adds
+        // YouTube to the run-scoped throttled set. The bulk worker
+        // skips Piped lookups for the remainder of the pass.
+        throw err
+      }
+      val id = attempt.getOrNull()
       if (id != null) {
         lastGood.set(host)
         return@withContext id
@@ -65,12 +94,31 @@ class PipedClient(
     null
   }
 
+  /**
+   * Sleep until at least [perHostMinIntervalMs] has elapsed since the
+   * previous request to [host]. Updates the per-host timestamp before
+   * returning so back-to-back callers serialise.
+   */
+  private suspend fun throttle(host: String) {
+    val now = System.currentTimeMillis()
+    val last = lastRequestMs[host] ?: 0L
+    val elapsed = now - last
+    val wait = max(0L, perHostMinIntervalMs - elapsed)
+    if (wait > 0) delay(wait)
+    lastRequestMs[host] = System.currentTimeMillis()
+  }
+
   private fun search(url: String, expectedDurationSec: Int?): String? {
     val req = Request.Builder()
       .url(url)
       .header("Accept", "application/json")
       .build()
     client.newCall(req).execute().use { resp ->
+      // Round 5 — propagate rate-limit / forbid signals so the chain
+      // can disable this provider for the remainder of the bulk run.
+      if (resp.code == 429 || resp.code == 403) {
+        throw ThrottledException("Piped responded ${resp.code} from $url")
+      }
       if (!resp.isSuccessful) return null
       val body = resp.body?.string() ?: return null
       val parsed = json.decodeFromString<PipedSearchResponse>(body)
