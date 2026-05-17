@@ -1,6 +1,28 @@
 # Cover art providers — multi-provider chain with YouTube support
 
-## Status: ✅ DONE (Phases A–L shipped; F deferred per plan)
+## Status: ✅ DONE (Phases A–M shipped; F deferred per plan)
+
+### Phase M — Round 8: replace dead Piped instances — shipped in commit 3a614ec
+
+v1.0-f7d741a's progress log showed every per-track search returning
+`0 results, no match` even with the correct track title in the query.
+Root cause: the public Piped federation collapsed. `kavin.rocks` →
+502, `adminforge.de` → broken 301 redirect, `r4fo.com` and
+`privacydev.net` → DNS gone. Only `api.piped.private.coffee` is
+serving `/search` with `200 OK` (verified 2026-05-17 against
+`piped-instances.kavin.rocks`).
+
+- [x] **M.1** Curl-verify each instance in the prior default pool;
+  document which are dead.
+- [x] **M.2** Replace `DEFAULT_PIPED_INSTANCES` with the lone live
+  instance; document the liveness oracle (`piped-instances.kavin.rocks`)
+  for the next time the list rots.
+- [x] **M.3** Release `v1.0-3a614ec` cut for Obtainium.
+
+Note for users who customised their instance list pre-Round 8: hit
+"Reset to defaults" in Settings → Cover art → Cover art providers →
+YouTube → Piped instances. Empty list also falls back to
+`DEFAULT_PIPED_INSTANCES`.
 
 ### Phase L — Round 7: search Piped by track title not album name — shipped in commit f7d741a
 
