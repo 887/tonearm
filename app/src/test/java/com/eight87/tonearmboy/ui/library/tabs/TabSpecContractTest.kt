@@ -43,13 +43,16 @@ class TabSpecContractTest {
   // -- Albums ---------------------------------------------------------
 
   @Test
-  fun albums_spec_section_keys_only_when_sorting_by_name() {
+  fun albums_spec_section_keys_track_each_sort_mode() {
     val spec = AlbumsTabSpec(AlbumCoversMode.Default)
     val a = Album(id = 1, name = "Aerial Roots", artist = "X",
       trackCount = 4, year = 2024, mediaStoreAlbumId = null)
+    // Name sort → first-letter section.
     assertEquals("A", spec.sectionKey(a, byName, intelligentSorting = false))
-    assertNull(spec.sectionKey(a, byDuration, intelligentSorting = false))
-    assertNull(spec.sectionKey(a, byArtist, intelligentSorting = false))
+    // Artist sort → first-letter of artist name (initials).
+    assertNotNull(spec.sectionKey(a, byArtist, intelligentSorting = false))
+    // Duration sort actually sorts by track count → count bucket.
+    assertNotNull(spec.sectionKey(a, byDuration, intelligentSorting = false))
   }
 
   @Test
@@ -81,7 +84,8 @@ class TabSpecContractTest {
     val a = Artist(id = 9, name = "Zaza", albumCount = 1, trackCount = 3)
     assertEquals("Z", ArtistsTabSpec.sectionKey(a, byName, intelligentSorting = false))
     assertEquals("Z", ArtistsTabSpec.sectionKey(a, byArtist, intelligentSorting = false))
-    assertNull(ArtistsTabSpec.sectionKey(a, byDuration, intelligentSorting = false))
+    // Artists' Duration sort actually sorts by trackCount → count bucket.
+    assertNotNull(ArtistsTabSpec.sectionKey(a, byDuration, intelligentSorting = false))
   }
 
   @Test
@@ -97,10 +101,11 @@ class TabSpecContractTest {
   // -- Genres ---------------------------------------------------------
 
   @Test
-  fun genres_spec_sections_unless_sort_is_duration() {
+  fun genres_spec_sections_match_sort_mode() {
     val g = Genre(id = 1, name = "ambient", trackCount = 12)
     assertEquals("A", GenresTabSpec.sectionKey(g, byName, intelligentSorting = false))
-    assertNull(GenresTabSpec.sectionKey(g, byDuration, intelligentSorting = false))
+    // Genres' Duration sort actually sorts by trackCount → count bucket.
+    assertNotNull(GenresTabSpec.sectionKey(g, byDuration, intelligentSorting = false))
     assertEquals("genres_tab", GenresTabSpec.testTag)
   }
 
@@ -118,7 +123,7 @@ class TabSpecContractTest {
   // -- Tracks ---------------------------------------------------------
 
   @Test
-  fun tracks_spec_sections_only_when_sorting_by_name() {
+  fun tracks_spec_sections_track_each_sort_mode() {
     val spec = TracksTabSpec(AlbumCoversMode.Default, onAction = { _, _ -> })
     val t = Track(
       id = 1, title = "Apricot", artist = "x", album = "y", albumArtist = null,
@@ -126,7 +131,8 @@ class TabSpecContractTest {
       data = "/x", dateAddedSeconds = 0,
     )
     assertEquals("A", spec.sectionKey(t, byName, intelligentSorting = false))
-    assertNull(spec.sectionKey(t, byDuration, intelligentSorting = false))
+    // Tracks' Duration sort produces a length bucket (e.g. "< 2 min").
+    assertNotNull(spec.sectionKey(t, byDuration, intelligentSorting = false))
     assertEquals("tracks_tab", spec.testTag)
     assertTrue(spec.supportsTileMode)
   }

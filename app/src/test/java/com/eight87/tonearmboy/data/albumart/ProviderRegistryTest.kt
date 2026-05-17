@@ -14,10 +14,14 @@ class ProviderRegistryTest {
       ProviderConfig(ProviderKind.ITunes, false),
       ProviderConfig(ProviderKind.MusicBrainz, true),
     )
-    val chain = ProviderRegistry.buildChain(configs)
-    // We can't easily inspect provider order without reflection, but
-    // the chain returning null on an unresolvable request still
-    // exercises the construction path.
+    // Inject an empty Piped instance pool so YouTube's Piped search
+    // stage can't reach the network. Without this, the test was
+    // making real HTTPS calls to api.piped.private.coffee and
+    // resolving "album by artist" to a real video id.
+    val chain = ProviderRegistry.buildChain(
+      configs,
+      ProviderRegistry.Deps(piped = PipedClient(instances = emptyList())),
+    )
     val result = chain.resolve(CoverArtRequest("album", "artist", null))
     assertNull(result)
   }

@@ -57,7 +57,7 @@ class SplashHoldTest {
       splashHold.set(false)
     }
 
-    // Simulate Media3 binding 100 ms in — well inside the 600 ms cap.
+    // Simulate Media3 binding 100 ms in — well inside the 150 ms cap.
     advanceTimeBy(100)
     state.value = state.value.copy(connectionPhase = ConnectionPhase.Connected)
     advanceUntilIdle()
@@ -99,9 +99,11 @@ class SplashHoldTest {
   }
 
   @Test
-  fun timeout_constant_is_six_hundred_ms() {
+  fun timeout_constant_matches_documented_value() {
     // Pin the documented value so a future bump in MainActivity
-    // (and any matching docs / tests) stays in sync.
-    org.junit.Assert.assertEquals(600L, MainActivity.SPLASH_HOLD_TIMEOUT_MS)
+    // (and any matching docs / tests) stays in sync. The cap was
+    // dropped from 600 ms → 150 ms (post-D.22.2 polish) once empirical
+    // bind latency settled well under that.
+    org.junit.Assert.assertEquals(150L, MainActivity.SPLASH_HOLD_TIMEOUT_MS)
   }
 }

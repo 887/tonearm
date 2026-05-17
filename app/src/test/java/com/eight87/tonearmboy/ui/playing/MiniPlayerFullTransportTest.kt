@@ -119,34 +119,11 @@ class MiniPlayerFullTransportTest {
     assertEquals(1, cycled)
   }
 
-  @Test
-  fun slider_setProgress_action_commits_via_onSeekTo() {
-    // The Material 3 Slider node carries a `SetProgress` semantics
-    // action whose argument is in the slider's `valueRange` (0..max).
-    // Invoking it simulates a finger drag commit and runs both
-    // `onValueChange` and `onValueChangeFinished`, so `onSeekTo` should
-    // fire with the chosen value.
-    val seeks = mutableListOf<Long>()
-    composeRule.setContent {
-      MaterialTheme {
-        Surface {
-          MiniPlayer(
-            state = playing(durationMs = 60_000L),
-            onTogglePlayPause = {},
-            onClose = {},
-            onExpand = {},
-            onSeekTo = { seeks += it },
-          )
-        }
-      }
-    }
-    val node = composeRule.onNodeWithTag("mini_player_slider", useUnmergedTree = true)
-    node.assertExists()
-    node.performSemanticsAction(SemanticsActions.SetProgress) { it(30_000f) }
-    composeRule.waitForIdle()
-    assertEquals(1, seeks.size)
-    assertEquals(30_000L, seeks[0])
-  }
+  // (Removed `slider_setProgress_action_commits_via_onSeekTo`: the
+  // draggable Material 3 Slider was promoted to NowPlaying; the
+  // mini-player now renders only a thin non-interactive
+  // LinearProgressIndicator. Seek-via-slider lives in the NowPlaying
+  // test surface.)
 
   @Test
   fun long_press_on_play_button_still_fires_custom_bar_action() {

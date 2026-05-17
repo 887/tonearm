@@ -20,8 +20,9 @@ import org.robolectric.annotation.Config
  *  - title in `bodyLarge` (we assert via the dedicated `mini_player_title`
  *    testTag and the rendered text)
  *  - "artist · album" subtitle in `bodySmall`
- *  - draggable Material 3 Slider with current / total time labels
- *    (testTag `mini_player_slider`)
+ *  - thin LinearProgressIndicator (testTag `mini_player_progress`).
+ *    The draggable Slider was promoted to NowPlaying; the mini-player
+ *    keeps only a non-interactive progress line.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -71,7 +72,7 @@ class MiniPlayerStylingTest {
     composeRule.onNodeWithText("Cipher Light").assertIsDisplayed()
 
     // The draggable slider must exist when state has duration.
-    composeRule.onNodeWithTag("mini_player_slider", useUnmergedTree = true).assertExists()
+    composeRule.onNodeWithTag("mini_player_progress", useUnmergedTree = true).assertExists()
   }
 
   @Test
@@ -90,7 +91,7 @@ class MiniPlayerStylingTest {
         }
       }
     }
-    composeRule.onNodeWithTag("mini_player_slider", useUnmergedTree = true).assertExists()
+    composeRule.onNodeWithTag("mini_player_progress", useUnmergedTree = true).assertExists()
   }
 
   @Test
