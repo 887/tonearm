@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -290,6 +291,7 @@ private fun ScrollbarThumb(
             .align(Alignment.TopEnd)
             .offset(y = chipYDp)
             .padding(end = thumbWidth + 4.dp)
+            .wrapContentWidth(Alignment.End, unbounded = true)
             .semantics { testTag = "fast_scrollbar_section_$label" },
         ) {
           Text(
@@ -299,6 +301,7 @@ private fun ScrollbarThumb(
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
             maxLines = 1,
             softWrap = false,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Visible,
           )
         }
       }
