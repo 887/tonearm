@@ -10,6 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
@@ -283,6 +288,7 @@ internal class TracksTabSpec(
       onAction = { action -> onAction(item, action) },
       trackSource = trackSource,
       onSearchTrackCover = onSearchTrackCover,
+      albumCoversMode = albumCoversMode,
     )
   }
 
@@ -350,6 +356,7 @@ private fun TrackRow(
   onLongClick: () -> Unit = {},
   trackSource: TrackSource? = null,
   onSearchTrackCover: ((Track) -> Unit)? = null,
+  albumCoversMode: AlbumCoversMode = AlbumCoversMode.Default,
 ) {
   var menuOpen by remember { mutableStateOf(false) }
   val rowBackground = if (selected) MaterialTheme.colorScheme.secondaryContainer
@@ -381,6 +388,21 @@ private fun TrackRow(
       },
     verticalAlignment = Alignment.CenterVertically,
   ) {
+    // Round 13 — small leading thumbnail (matches the whisperboy
+    // list-row shape). Honours AlbumCoversMode.Off via the CoverArt
+    // composable's own check; subscribes to per-track + per-album
+    // overrides so the bulk-fetched cover lights up here too.
+    com.eight87.tonearmboy.ui.library.CoverArt(
+      albumId = track.mediaStoreAlbumId,
+      size = 48.dp,
+      mode = albumCoversMode,
+      trackId = track.id,
+      trackSource = trackSource,
+      modifier = Modifier
+        .size(48.dp)
+        .clip(RoundedCornerShape(4.dp)),
+    )
+    Spacer(Modifier.width(12.dp))
     Column(modifier = Modifier.weight(1f)) {
       Text(track.title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
       Text(

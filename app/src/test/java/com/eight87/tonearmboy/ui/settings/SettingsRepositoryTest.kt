@@ -103,13 +103,14 @@ class SettingsRepositoryTest {
   }
 
   @Test
-  fun libraryTabsOrder_roundTrips_andTolerates_partial() = runTest {
+  fun libraryTabsOrder_roundTrips_visible_set() = runTest {
+    // Round 12 — tabs not in the visible list are now persisted as
+    // hidden (after the `_hidden_` marker) and dropped on read so the
+    // user's toggle-off actually sticks. The reader returns ONLY the
+    // visible portion; hidden tabs no longer reappear.
     repo.setLibraryTabs(listOf(LibraryTab.Albums, LibraryTab.Songs))
     val order = repo.libraryTabs.flow.first()
-    // Visible tabs come first in order, missing tabs are appended.
-    assertEquals(LibraryTab.Albums, order[0])
-    assertEquals(LibraryTab.Songs, order[1])
-    assertTrue(order.containsAll(LibraryTab.entries))
+    assertEquals(listOf(LibraryTab.Albums, LibraryTab.Songs), order)
   }
 
   @Test

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
@@ -331,6 +332,8 @@ fun AlbumDetailScreen(
               track = track,
               onClick = { onTrackClick(tracks, index) },
               onAction = { action -> onTrackAction(track, action) },
+              albumCoversMode = albumCoversMode,
+              trackSource = trackSource,
             )
           }
         }
@@ -486,6 +489,8 @@ fun ArtistDetailScreen(
               track = track,
               onClick = { onTrackClick(tracks, index) },
               onAction = { action -> onTrackAction(track, action) },
+              albumCoversMode = albumCoversMode,
+              trackSource = trackSource,
             )
           }
         }
@@ -504,6 +509,7 @@ fun GenreDetailScreen(
   onTrackClick: (List<Track>, Int) -> Unit,
   onTrackAction: (Track, TrackContextAction) -> Unit,
   onBack: () -> Unit,
+  albumCoversMode: AlbumCoversMode = AlbumCoversMode.Default,
 ) {
   // R.F.12 — narrow Flow; repository pre-filters by genre.
   val genreTracks by trackSource.observeTracksForGenre(genreName)
@@ -550,6 +556,8 @@ fun GenreDetailScreen(
               track = track,
               onClick = { onTrackClick(tracks, index) },
               onAction = { action -> onTrackAction(track, action) },
+              albumCoversMode = albumCoversMode,
+              trackSource = trackSource,
             )
           }
         }
@@ -567,6 +575,8 @@ private fun DetailTrackRow(
   track: Track,
   onClick: () -> Unit,
   onAction: (TrackContextAction) -> Unit,
+  albumCoversMode: AlbumCoversMode = AlbumCoversMode.Default,
+  trackSource: TrackSource? = null,
 ) {
   var menuOpen by remember { mutableStateOf(false) }
   Row(
@@ -577,6 +587,18 @@ private fun DetailTrackRow(
       .semantics { testTag = "detail_track_row" },
     verticalAlignment = Alignment.CenterVertically,
   ) {
+    // Round 13 — leading thumbnail (matches the Tracks-tab list row).
+    CoverArt(
+      albumId = track.mediaStoreAlbumId,
+      size = 48.dp,
+      mode = albumCoversMode,
+      trackId = track.id,
+      trackSource = trackSource,
+      modifier = Modifier
+        .size(48.dp)
+        .clip(RoundedCornerShape(4.dp)),
+    )
+    Spacer(Modifier.width(12.dp))
     Column(modifier = Modifier.weight(1f)) {
       Text(track.title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
       Text(

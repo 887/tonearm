@@ -213,6 +213,7 @@ fun GenreDetail.Register(scope: RouteScope) {
     GenreDetailScreen(
       trackSource = graph.tracks,
       genreName = name,
+      albumCoversMode = albumCoversMode,
       onTrackClick = { tracks, index ->
         playback.playFromDetail(
           surroundingList = tracks,
