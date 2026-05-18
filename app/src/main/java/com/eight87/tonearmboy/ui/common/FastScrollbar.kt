@@ -297,6 +297,8 @@ private fun ScrollbarThumb(
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+            maxLines = 1,
+            softWrap = false,
           )
         }
       }
