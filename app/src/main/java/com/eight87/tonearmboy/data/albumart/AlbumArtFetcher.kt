@@ -120,8 +120,15 @@ class AlbumArtFetcher(
   ): FetchResult {
     val key = albumKey(albumName, albumArtist)
     if (!overwriteUserChoice) {
-      when (albumSource.albumCoverChoice(key).first()) {
-        is AlbumCoverChoice.Pinned -> return FetchResult.AlreadyPinned
+      when (val choice = albumSource.albumCoverChoice(key).first()) {
+        is AlbumCoverChoice.Pinned -> {
+          // A pinned URI is only meaningful if the file behind it is
+          // still on disk. Pre-fix the cover dir was `cacheDir/...`,
+          // which Android evicts under storage pressure — those rows
+          // survive as stale URIs after eviction. Treat a missing
+          // file as NoChoice so the bulk pass heals automatically.
+          if (pinnedFileStillExists(choice.uri)) return FetchResult.AlreadyPinned
+        }
         AlbumCoverChoice.IntentionallyEmpty -> return FetchResult.IntentionallyEmpty
         AlbumCoverChoice.NoChoice -> Unit
       }
@@ -151,8 +158,8 @@ class AlbumArtFetcher(
     val coverUrl = resolved.url
     val providerKind = resolved.kind
 
-    val cacheDir = File(context.cacheDir, "album_art").also { it.mkdirs() }
-    val target = File(cacheDir, "${key.hashCode().toUInt()}.jpg")
+    val storeDir = albumArtDir(context)
+    val target = File(storeDir, "${key.hashCode().toUInt()}.jpg")
     val request = Request.Builder().url(coverUrl).build()
     val downloaded = runCatching {
       downloader.newCall(request).execute().use { resp ->
@@ -208,8 +215,10 @@ class AlbumArtFetcher(
     val sink = trackSource
       ?: return FetchResult.Failed("fetchTrack called with no TrackSource wired")
     if (!overwriteUserChoice) {
-      when (sink.trackCoverChoice(track.id).first()) {
-        is AlbumCoverChoice.Pinned -> return FetchResult.AlreadyPinned
+      when (val choice = sink.trackCoverChoice(track.id).first()) {
+        is AlbumCoverChoice.Pinned -> {
+          if (pinnedFileStillExists(choice.uri)) return FetchResult.AlreadyPinned
+        }
         AlbumCoverChoice.IntentionallyEmpty -> return FetchResult.IntentionallyEmpty
         AlbumCoverChoice.NoChoice -> Unit
       }
@@ -245,8 +254,8 @@ class AlbumArtFetcher(
       val videoId = resolved.videoId
       val hitDiags = resolved.diags
 
-      val cacheDir = File(context.cacheDir, "track_art").also { it.mkdirs() }
-      val target = File(cacheDir, "${track.id}.jpg")
+      val storeDir = trackArtDir(context)
+      val target = File(storeDir, "${track.id}.jpg")
       val request = Request.Builder().url(coverUrl).build()
       val downloaded = runCatching {
         downloader.newCall(request).execute().use { resp ->
@@ -326,6 +335,33 @@ class AlbumArtFetcher(
     data class NotFound(val diags: List<StageDiag> = emptyList()) : FetchResult
     data object ServiceDisabled : FetchResult
     data class Failed(val reason: String) : FetchResult
+  }
+
+  companion object {
+    /**
+     * Where downloaded album/track covers live. Lives under
+     * `filesDir` (NOT `cacheDir`) so Android's storage-pressure
+     * eviction can't quietly delete pinned art behind the user's
+     * back. Pre-fix the dir was `cacheDir/album_art` (resp.
+     * `track_art`), which is why covers vanished without warning
+     * after low-storage events.
+     */
+    fun albumArtDir(context: Context): File =
+      File(context.filesDir, "album_art").also { it.mkdirs() }
+
+    fun trackArtDir(context: Context): File =
+      File(context.filesDir, "track_art").also { it.mkdirs() }
+
+    /**
+     * True when [uri] is a `file:` URI pointing at a path that still
+     * exists on disk. Non-file URIs (content:, http:) are considered
+     * "still valid" — only the file-backed pins can rot the way
+     * cacheDir eviction made them rot.
+     */
+    fun pinnedFileStillExists(uri: String): Boolean {
+      if (!uri.startsWith("file:")) return true
+      return runCatching { File(java.net.URI(uri)).exists() }.getOrDefault(true)
+    }
   }
 }
 
