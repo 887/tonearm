@@ -45,7 +45,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|locale|layoutDirection|density|uiMode">
             <!-- D.20.1: singleTask + the FLAG_ACTIVITY_SINGLE_TOP /
                  FLAG_ACTIVITY_CLEAR_TOP flags on the session-activity
                  PendingIntent guarantee that a notification tap reuses
