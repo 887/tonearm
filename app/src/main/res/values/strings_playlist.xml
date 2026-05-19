@@ -9,6 +9,7 @@
   <string name="search_no_matches">No matches for \"%1$s\".</string>
   <string name="search_unknown_track_subtitle">Unknown</string>
   <string name="search_cd_back">Back</string>
+  <string name="search_cd_clear">Clear</string>
 
   <!-- Settings search overlay (ui/settings/catalog/SettingsSearchScreen.kt) -->
   <string name="settings_search_placeholder">Search settings</string>
