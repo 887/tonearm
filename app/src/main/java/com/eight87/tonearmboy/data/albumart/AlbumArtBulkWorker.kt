@@ -103,7 +103,15 @@ class AlbumArtBulkWorker(
       for (track in tracks) {
         if (isStopped) break
 
-        val choice = graph.tracks.trackCoverChoice(track.id).first()
+        val rawChoice = graph.tracks.trackCoverChoice(track.id).first()
+        // Heal stale pins: a Pinned URI whose file:// target was
+        // evicted by Android (pre-fix the covers lived in cacheDir)
+        // should be treated as NoChoice so the refetch can repair
+        // it instead of being silently skipped as "Already pinned".
+        val choice = if (
+          rawChoice is AlbumCoverChoice.Pinned &&
+          !AlbumArtFetcher.pinnedFileStillExists(rawChoice.uri)
+        ) AlbumCoverChoice.NoChoice else rawChoice
         if (choice !is AlbumCoverChoice.NoChoice) {
           AlbumArtBulkProgress.append(
             AlbumArtBulkProgress.LogEntry(
