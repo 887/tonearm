@@ -630,7 +630,14 @@ class LibraryRepository(
     } else {
       val cachedIds = db.trackDao().allIds().toHashSet()
       val removed = (cachedIds - snapshotIds).toList()
-      val upserted = snapshot
+      // Only upsert tracks new to the cache. A burst of MediaStore
+      // change notifications (one per inserted row) used to walk the
+      // whole library through `insertTracks` (OnConflictStrategy.REPLACE)
+      // every fire — turning a 5-row insert into N*5 row REPLACEs and
+      // waking every Flow observer N times. The id-only diff trades
+      // detection of in-place tag edits (same id, new metadata) for
+      // O(delta) writes; tag edits land on the next explicit rescan.
+      val upserted = snapshot.filter { it.id !in cachedIds }
       val albums = Mapping.foldAlbumReplayGain(
         Mapping.deriveAlbums(snapshot), albumGainPairs,
       )
