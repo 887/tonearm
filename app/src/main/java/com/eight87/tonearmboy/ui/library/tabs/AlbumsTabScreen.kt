@@ -178,10 +178,16 @@ internal class AlbumsTabSpec(
     item: Album,
     selected: Boolean,
     inSelectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onClick: (Album) -> Unit,
+    onLongClick: (Album) -> Unit,
   ) {
-    AlbumListRow(item, albumCoversMode, onClick, onLongClick, albumSource = albumSource.takeIf { !inSelectionMode })
+    AlbumListRow(
+      album = item,
+      albumCoversMode = albumCoversMode,
+      onClick = { onClick(item) },
+      onLongClick = { onLongClick(item) },
+      albumSource = albumSource.takeIf { !inSelectionMode },
+    )
   }
 
   // R4 — tile-mode overflow with the four cover actions per album.

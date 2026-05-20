@@ -160,16 +160,16 @@ internal object ArtistsTabSpec : TabSpec<Artist> {
     item: Artist,
     selected: Boolean,
     inSelectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onClick: (Artist) -> Unit,
+    onLongClick: (Artist) -> Unit,
   ) {
     val albums = pluralStringResource(R.plurals.library_artist_detail_albums_count, item.albumCount, item.albumCount)
     val tracks = pluralStringResource(R.plurals.library_artist_detail_tracks_count, item.trackCount, item.trackCount)
     TwoLineRow(
       primary = item.name,
       secondary = "$albums · $tracks",
-      onClick = onClick,
-      onLongClick = onLongClick,
+      onClick = { onClick(item) },
+      onLongClick = { onLongClick(item) },
     )
   }
 }
@@ -201,8 +201,8 @@ internal class ArtistsTabSpecWithCovers(
     item: Artist,
     selected: Boolean,
     inSelectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onClick: (Artist) -> Unit,
+    onLongClick: (Artist) -> Unit,
   ) {
     val albums = pluralStringResource(R.plurals.library_artist_detail_albums_count, item.albumCount, item.albumCount)
     val tracks = pluralStringResource(R.plurals.library_artist_detail_tracks_count, item.trackCount, item.trackCount)
@@ -210,8 +210,8 @@ internal class ArtistsTabSpecWithCovers(
       TwoLineRow(
         primary = item.name,
         secondary = "$albums · $tracks",
-        onClick = onClick,
-        onLongClick = onLongClick,
+        onClick = { onClick(item) },
+        onLongClick = { onLongClick(item) },
       )
     } else {
       ArtistOverflowRow(
@@ -219,8 +219,8 @@ internal class ArtistsTabSpecWithCovers(
         secondary = "$albums · $tracks",
         artistName = item.name,
         artistSource = artistSource,
-        onClick = onClick,
-        onLongClick = onLongClick,
+        onClick = { onClick(item) },
+        onLongClick = { onLongClick(item) },
       )
     }
   }

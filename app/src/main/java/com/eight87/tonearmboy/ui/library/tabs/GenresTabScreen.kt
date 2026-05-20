@@ -120,14 +120,14 @@ internal object GenresTabSpec : TabSpec<Genre> {
     item: Genre,
     selected: Boolean,
     inSelectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onClick: (Genre) -> Unit,
+    onLongClick: (Genre) -> Unit,
   ) {
     TwoLineRow(
       primary = item.name,
       secondary = pluralStringResource(R.plurals.library_genre_subtitle_tracks, item.trackCount, item.trackCount),
-      onClick = onClick,
-      onLongClick = onLongClick,
+      onClick = { onClick(item) },
+      onLongClick = { onLongClick(item) },
     )
   }
 }

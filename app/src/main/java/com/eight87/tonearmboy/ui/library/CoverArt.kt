@@ -136,7 +136,14 @@ fun CoverArt(
         ?: coverUriOverride?.takeIf { it.isNotBlank() }
         ?: albumArtUri(albumId ?: 0L)
     }
-    var coilState by remember(uri) { mutableStateOf<CoilLoadPhase>(CoilLoadPhase.Loading) }
+    // Perf — we only need to react to the Error phase (to flip the
+    // overlay back to the music-note placeholder when the local
+    // lookup fails). Loading is left as the flat surfaceVariant
+    // background — pending cells show as colored squares, image
+    // pops in when ready (Aves-style). Dropping the per-cell
+    // CircularProgressIndicator removes the compose/measure/draw
+    // cost that was dominating Songs-tab scroll.
+    var isError by remember(uri) { mutableStateOf(false) }
 
     val request = remember(uri) {
       // Coil derives size from layout.
@@ -150,57 +157,31 @@ fun CoverArt(
     }
 
     // Always render the AsyncImage so it can fire load events; render
-    // overlays on top per state.
+    // overlays on top only for Error and the web-fetch state.
     AsyncImage(
       model = request,
       contentDescription = contentDescription,
       modifier = Modifier.fillMaxSize(),
       contentScale = ContentScale.Crop,
       onState = { state ->
-        coilState = when (state) {
-          is AsyncImagePainter.State.Loading -> CoilLoadPhase.Loading
-          is AsyncImagePainter.State.Success -> CoilLoadPhase.Success
-          is AsyncImagePainter.State.Error -> CoilLoadPhase.Error
-          AsyncImagePainter.State.Empty -> CoilLoadPhase.Loading
-        }
+        isError = state is AsyncImagePainter.State.Error
       },
     )
 
-    // Overlay rules (later wins; AsyncImage already drew underneath):
-    //   - Success: nothing on top, the image is showing.
-    //   - Loading: small spinner centred, image not yet decoded.
-    //   - Error/Empty: music-note placeholder (replaces any partial
-    //     image with the canonical "no art" symbol).
+    // Overlay rules:
     //   - Fetching from web: cloud-download icon + spinner takes
-    //     precedence over Loading/Error for as long as the fetch
-    //     registry shows the key in flight — the user sees the
-    //     network activity even when the local image lookup already
-    //     failed (which is what triggers most fetches anyway).
+    //     precedence — the user sees the network activity.
+    //   - Error: music-note placeholder (replaces partial image with
+    //     the canonical "no art" symbol).
+    //   - Otherwise: nothing on top. While Coil is loading the cell
+    //     shows the flat surfaceVariant background, image pops in
+    //     once decoded.
     when {
       fetching -> FetchingIndicator(size)
-      coilState == CoilLoadPhase.Loading -> LoadingSpinner(size)
-      coilState == CoilLoadPhase.Error -> Placeholder(size)
+      isError -> Placeholder(size)
       else -> Unit
     }
   }
-}
-
-/** Local Coil load phase, kept narrow so the overlay `when` is exhaustive. */
-private enum class CoilLoadPhase { Loading, Success, Error }
-
-/**
- * Coil is decoding from disk / cache. Show a small centred spinner
- * so the user can see "we're working on it" rather than staring at
- * an empty placeholder for the duration of the decode.
- */
-@Composable
-private fun LoadingSpinner(size: Dp) {
-  CircularProgressIndicator(
-    progress = { 0.75f },
-    modifier = Modifier.size((size * 0.35f).coerceAtLeast(20.dp)),
-    strokeWidth = 2.dp,
-    color = MaterialTheme.colorScheme.onSurfaceVariant,
-  )
 }
 
 /**

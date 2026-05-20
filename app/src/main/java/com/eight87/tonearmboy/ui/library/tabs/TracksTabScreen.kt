@@ -276,15 +276,15 @@ internal class TracksTabSpec(
     item: Track,
     selected: Boolean,
     inSelectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onClick: (Track) -> Unit,
+    onLongClick: (Track) -> Unit,
   ) {
     TrackRow(
       track = item,
       selected = selected,
       inSelectionMode = inSelectionMode,
-      onClick = onClick,
-      onLongClick = onLongClick,
+      onClick = { onClick(item) },
+      onLongClick = { onLongClick(item) },
       onAction = { action -> onAction(item, action) },
       trackSource = trackSource,
       onSearchTrackCover = onSearchTrackCover,
@@ -361,22 +361,6 @@ private fun TrackRow(
   var menuOpen by remember { mutableStateOf(false) }
   val rowBackground = if (selected) MaterialTheme.colorScheme.secondaryContainer
   else androidx.compose.ui.graphics.Color.Transparent
-  // R1 — when the row has a TrackSource handle, render the four
-  // cover actions in the overflow menu. Without it the menu falls back
-  // to the legacy 6-item shape (e.g. the search screen, which doesn't
-  // own track-cover state yet).
-  val coverChoice = if (trackSource != null) {
-    trackSource.trackCoverChoice(track.id)
-      .collectAsState(initial = com.eight87.tonearmboy.data.AlbumCoverChoice.NoChoice)
-      .value
-  } else null
-  val coverHandlers = if (trackSource != null) {
-    com.eight87.tonearmboy.ui.library.rememberTrackCoverActions(
-      trackSource = trackSource,
-      trackId = track.id,
-      onSearchOnline = { onSearchTrackCover?.invoke(track) },
-    )
-  } else null
   Row(
     modifier = Modifier
       .fillMaxWidth()
@@ -418,14 +402,32 @@ private fun TrackRow(
         onClick = { menuOpen = true },
         modifier = Modifier.semantics { testTag = "track_row_overflow" },
       ) { Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.library_cd_more_options)) }
-      com.eight87.tonearmboy.ui.library.TrackContextMenu(
-        expanded = menuOpen,
-        onDismiss = { menuOpen = false },
-        onAction = onAction,
-        deleteTestTag = "track_context_delete",
-        coverChoice = coverChoice,
-        coverHandlers = coverHandlers,
-      )
+      // Perf — only subscribe to cover-choice Flow + build the cover
+      // handlers when the overflow menu is actually open. Was firing
+      // 2 Flow subscriptions per visible row, menu open or not, which
+      // dominated scroll cost on the Songs tab.
+      if (menuOpen) {
+        val coverChoice = if (trackSource != null) {
+          trackSource.trackCoverChoice(track.id)
+            .collectAsState(initial = com.eight87.tonearmboy.data.AlbumCoverChoice.NoChoice)
+            .value
+        } else null
+        val coverHandlers = if (trackSource != null) {
+          com.eight87.tonearmboy.ui.library.rememberTrackCoverActions(
+            trackSource = trackSource,
+            trackId = track.id,
+            onSearchOnline = { onSearchTrackCover?.invoke(track) },
+          )
+        } else null
+        com.eight87.tonearmboy.ui.library.TrackContextMenu(
+          expanded = menuOpen,
+          onDismiss = { menuOpen = false },
+          onAction = onAction,
+          deleteTestTag = "track_context_delete",
+          coverChoice = coverChoice,
+          coverHandlers = coverHandlers,
+        )
+      }
     }
   }
   HorizontalDivider()

@@ -164,14 +164,14 @@ internal object PlaylistsTabSpec : TabSpec<Playlist> {
     item: Playlist,
     selected: Boolean,
     inSelectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onClick: (Playlist) -> Unit,
+    onLongClick: (Playlist) -> Unit,
   ) {
     TwoLineRow(
       primary = item.name,
       secondary = pluralStringResource(R.plurals.library_playlist_subtitle_tracks, item.trackCount, item.trackCount),
-      onClick = onClick,
-      onLongClick = onLongClick,
+      onClick = { onClick(item) },
+      onLongClick = { onLongClick(item) },
     )
   }
 }

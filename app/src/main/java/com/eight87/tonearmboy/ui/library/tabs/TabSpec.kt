@@ -67,13 +67,20 @@ interface TabSpec<T : Any> {
    * consumed by multi-select-aware tabs (Tracks); other impls can
    * ignore them and just render a plain row.
    */
+  /**
+   * Click + long-click are `(T) -> Unit` (not `() -> Unit`) so the
+   * renderer can hoist a single stable lambda across every visible row
+   * — the per-item closure capture happens inside each `ListRow`
+   * implementation (next to `combinedClickable`), where the `item`
+   * reference is already keyed to a stable identity.
+   */
   @Composable
   fun ListRow(
     item: T,
     selected: Boolean,
     inSelectionMode: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onClick: (T) -> Unit,
+    onLongClick: (T) -> Unit,
   )
 
   /**

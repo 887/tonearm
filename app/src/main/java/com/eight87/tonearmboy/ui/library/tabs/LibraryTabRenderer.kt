@@ -211,8 +211,8 @@ private fun <T : Any> SelectableListRow(
       item = item,
       selected = selected,
       inSelectionMode = selection?.inSelectionMode ?: false,
-      onClick = { onItemClick(item) },
-      onLongClick = { onItemLongClick(item) },
+      onClick = onItemClick,
+      onLongClick = onItemLongClick,
     )
   }
 }
