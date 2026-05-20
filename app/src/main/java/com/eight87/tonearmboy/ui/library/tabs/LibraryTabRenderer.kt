@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -145,17 +146,28 @@ fun <T : Any> LibraryTabRenderer(
         modifier = Modifier.fillMaxSize().padding(horizontal = SettingsDimens.PagePadding),
       )
     } else {
+      // Stable per-row click lambdas. Without rememberUpdatedState +
+      // a `remember { ... }`, every recomposition of the renderer
+      // allocates fresh `{ onItemClick(item) }` lambdas which forces
+      // every visible row to recompose on unrelated parent state
+      // changes (scroll, selection toggle, etc).
+      val onItemClickRef = rememberUpdatedState(onItemClick)
+      val onItemLongClickRef = rememberUpdatedState(onItemLongClick)
+      val stableClick: (T) -> Unit = remember { { it -> onItemClickRef.value(it) } }
+      val stableLongClick: (T) -> Unit = remember {
+        { it -> onItemLongClickRef.value?.invoke(it) }
+      }
       LazyColumn(state = listState, modifier = Modifier.fillMaxSize().libraryListCard()) {
         if (grouped.isNotEmpty()) {
           orderedKeys.forEach { key ->
             stickyHeader { SectionHeader(key) }
             items(grouped.getValue(key), key = { spec.id(it) }) { item ->
-              SelectableListRow(spec, item, selection, onItemClick, onItemLongClick)
+              SelectableListRow(spec, item, selection, stableClick, stableLongClick)
             }
           }
         } else {
           items(items, key = { spec.id(it) }) { item ->
-            SelectableListRow(spec, item, selection, onItemClick, onItemLongClick)
+            SelectableListRow(spec, item, selection, stableClick, stableLongClick)
           }
         }
       }
@@ -190,7 +202,7 @@ private fun <T : Any> SelectableListRow(
   item: T,
   selection: SelectionState<Long>?,
   onItemClick: (T) -> Unit,
-  onItemLongClick: ((T) -> Unit)?,
+  onItemLongClick: (T) -> Unit,
 ) {
   val selected = selection?.contains(spec.id(item)) ?: false
   val bg = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
@@ -200,7 +212,7 @@ private fun <T : Any> SelectableListRow(
       selected = selected,
       inSelectionMode = selection?.inSelectionMode ?: false,
       onClick = { onItemClick(item) },
-      onLongClick = { onItemLongClick?.invoke(item) },
+      onLongClick = { onItemLongClick(item) },
     )
   }
 }

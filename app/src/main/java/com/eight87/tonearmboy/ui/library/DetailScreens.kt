@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -326,12 +327,24 @@ fun AlbumDetailScreen(
       // wrap the section in a stickyHeader-free Column so the rounded
       // corners don't repeat on every row.
       item {
+        // Hoist stable per-row lambdas: rememberUpdatedState forwards
+        // to the current onTrackClick/onTrackAction + tracks list so
+        // rows don't recompose on unrelated parent state changes.
+        val tracksRef = rememberUpdatedState(tracks)
+        val onTrackClickRef = rememberUpdatedState(onTrackClick)
+        val onTrackActionRef = rememberUpdatedState(onTrackAction)
+        val stableClick: (Track) -> Unit = remember {
+          { t -> onTrackClickRef.value(tracksRef.value, tracksRef.value.indexOf(t)) }
+        }
+        val stableAction: (Track, TrackContextAction) -> Unit = remember {
+          { t, a -> onTrackActionRef.value(t, a) }
+        }
         Column(modifier = Modifier.libraryDetailCard()) {
-          tracks.forEachIndexed { index, track ->
+          tracks.forEach { track ->
             DetailTrackRow(
               track = track,
-              onClick = { onTrackClick(tracks, index) },
-              onAction = { action -> onTrackAction(track, action) },
+              onClick = stableClick,
+              onAction = stableAction,
               albumCoversMode = albumCoversMode,
               trackSource = trackSource,
             )
@@ -478,17 +491,26 @@ fun ArtistDetailScreen(
         }
       }
       item {
+        val tracksRef = rememberUpdatedState(tracks)
+        val onTrackClickRef = rememberUpdatedState(onTrackClick)
+        val onTrackActionRef = rememberUpdatedState(onTrackAction)
+        val stableClick: (Track) -> Unit = remember {
+          { t -> onTrackClickRef.value(tracksRef.value, tracksRef.value.indexOf(t)) }
+        }
+        val stableAction: (Track, TrackContextAction) -> Unit = remember {
+          { t, a -> onTrackActionRef.value(t, a) }
+        }
         Column(modifier = Modifier.libraryDetailCard()) {
           Text(
             text = stringResource(R.string.library_detail_artist_tracks_section),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
           )
-          tracks.forEachIndexed { index, track ->
+          tracks.forEach { track ->
             DetailTrackRow(
               track = track,
-              onClick = { onTrackClick(tracks, index) },
-              onAction = { action -> onTrackAction(track, action) },
+              onClick = stableClick,
+              onAction = stableAction,
               albumCoversMode = albumCoversMode,
               trackSource = trackSource,
             )
@@ -550,12 +572,21 @@ fun GenreDetailScreen(
         }
       }
       item {
+        val tracksRef = rememberUpdatedState(tracks)
+        val onTrackClickRef = rememberUpdatedState(onTrackClick)
+        val onTrackActionRef = rememberUpdatedState(onTrackAction)
+        val stableClick: (Track) -> Unit = remember {
+          { t -> onTrackClickRef.value(tracksRef.value, tracksRef.value.indexOf(t)) }
+        }
+        val stableAction: (Track, TrackContextAction) -> Unit = remember {
+          { t, a -> onTrackActionRef.value(t, a) }
+        }
         Column(modifier = Modifier.libraryDetailCard()) {
-          tracks.forEachIndexed { index, track ->
+          tracks.forEach { track ->
             DetailTrackRow(
               track = track,
-              onClick = { onTrackClick(tracks, index) },
-              onAction = { action -> onTrackAction(track, action) },
+              onClick = stableClick,
+              onAction = stableAction,
               albumCoversMode = albumCoversMode,
               trackSource = trackSource,
             )
@@ -573,8 +604,8 @@ fun GenreDetailScreen(
 @Composable
 private fun DetailTrackRow(
   track: Track,
-  onClick: () -> Unit,
-  onAction: (TrackContextAction) -> Unit,
+  onClick: (Track) -> Unit,
+  onAction: (Track, TrackContextAction) -> Unit,
   albumCoversMode: AlbumCoversMode = AlbumCoversMode.Default,
   trackSource: TrackSource? = null,
 ) {
@@ -582,7 +613,7 @@ private fun DetailTrackRow(
   Row(
     modifier = Modifier
       .fillMaxWidth()
-      .clickable(onClick = onClick)
+      .clickable { onClick(track) }
       .padding(horizontal = 16.dp, vertical = 10.dp)
       .semantics { testTag = "detail_track_row" },
     verticalAlignment = Alignment.CenterVertically,
@@ -616,7 +647,7 @@ private fun DetailTrackRow(
       TrackContextMenu(
         expanded = menuOpen,
         onDismiss = { menuOpen = false },
-        onAction = onAction,
+        onAction = { action -> onAction(track, action) },
         deleteTestTag = "detail_track_context_delete",
       )
     }

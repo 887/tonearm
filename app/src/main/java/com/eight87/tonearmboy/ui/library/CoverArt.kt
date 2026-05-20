@@ -27,7 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
-import coil3.size.Size
+import coil3.size.Precision
 import com.eight87.tonearmboy.data.TrackSource
 import com.eight87.tonearmboy.data.albumKey
 import com.eight87.tonearmboy.data.albumart.AlbumArtFetchRegistry
@@ -138,15 +138,15 @@ fun CoverArt(
     }
     var coilState by remember(uri) { mutableStateOf<CoilLoadPhase>(CoilLoadPhase.Loading) }
 
-    val request = remember(uri, mode) {
-      val builder = ImageRequest.Builder(context).data(uri)
-      // Sizing matters for perceived load speed. Coil 3's `Size.ORIGINAL`
-      // means "decode at the source's intrinsic resolution" — fine for
-      // a 200x200 album thumbnail, ruinous for a 1200x1200 JPEG that
-      // gets scaled down to a 160 dp tile. Balanced mode lets Coil
-      // read the target size from the AsyncImage layout pass.
-      if (mode == AlbumCoversMode.On) builder.size(Size.ORIGINAL)
-      builder.build()
+    val request = remember(uri) {
+      // Coil derives size from layout.
+      val key = "cover-$uri"
+      ImageRequest.Builder(context)
+        .data(uri)
+        .precision(Precision.INEXACT)
+        .memoryCacheKey(key)
+        .diskCacheKey(key)
+        .build()
     }
 
     // Always render the AsyncImage so it can fire load events; render
@@ -196,6 +196,7 @@ private enum class CoilLoadPhase { Loading, Success, Error }
 @Composable
 private fun LoadingSpinner(size: Dp) {
   CircularProgressIndicator(
+    progress = { 0.75f },
     modifier = Modifier.size((size * 0.35f).coerceAtLeast(20.dp)),
     strokeWidth = 2.dp,
     color = MaterialTheme.colorScheme.onSurfaceVariant,
