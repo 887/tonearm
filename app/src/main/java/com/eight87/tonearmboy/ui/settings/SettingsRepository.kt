@@ -787,16 +787,16 @@ class SettingsRepository(private val context: Context) :
       // `false` (or never touched the key while the previous code
       // somehow stored false) miss the default. Flip both ON exactly
       // once, gated by a marker key so a future toggle-off survives.
-      if (prefs[KEY_ALBUM_ART_VISUALS_DEFAULTED_V1] != true) {
+      // V2: force-on tint + bg AND clear customChromeTint. V1 (cc0534e)
+      // shipped without the customChromeTint clear, so an upgrader who
+      // had a fixed colour parked there still wasn't getting album-art
+      // tint. Bumping the marker rebuilds defaults exactly once on V2.
+      if (prefs[KEY_ALBUM_ART_VISUALS_DEFAULTED_V2] != true) {
         prefs[KEY_ALBUM_ART_TINT_ENABLED] = true
         prefs[KEY_ALBUM_ART_BACKGROUND_ENABLED] = true
-        // Clear any previously-set custom tint. A custom tint hard-
-        // overrides the album-art-derived tint, so an upgrader who
-        // had `#30304A` (or any colour) parked there from an earlier
-        // experiment would see album-art tint silently no-op. Zero
-        // = unset, falls through to the album palette.
         prefs[KEY_CUSTOM_CHROME_TINT] = 0L
         prefs[KEY_ALBUM_ART_VISUALS_DEFAULTED_V1] = true
+        prefs[KEY_ALBUM_ART_VISUALS_DEFAULTED_V2] = true
       }
     }
   }
@@ -824,6 +824,7 @@ class SettingsRepository(private val context: Context) :
     internal val KEY_ALBUM_ART_TINT_ENABLED = booleanPreferencesKey("album_art_tint_enabled")
     internal val KEY_ALBUM_ART_BACKGROUND_ENABLED = booleanPreferencesKey("album_art_background_enabled")
     internal val KEY_ALBUM_ART_VISUALS_DEFAULTED_V1 = booleanPreferencesKey("album_art_visuals_defaulted_v1")
+    internal val KEY_ALBUM_ART_VISUALS_DEFAULTED_V2 = booleanPreferencesKey("album_art_visuals_defaulted_v2")
     internal val KEY_CUSTOM_CHROME_TINT = androidx.datastore.preferences.core.longPreferencesKey("custom_chrome_tint")
 
     // MediaStore scan-skip cache. The version token is opaque per

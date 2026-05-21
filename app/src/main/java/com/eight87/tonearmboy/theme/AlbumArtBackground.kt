@@ -8,8 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -65,29 +63,14 @@ fun AlbumArtBackground(
       contentScale = ContentScale.Crop,
       modifier = imageModifier,
     )
-    // Base scrim — flat 65 % theme-surface over the whole image so
-    // every widget's onSurface/onBackground text stays legible
-    // regardless of the cover's brightness.
+    // Light scrim. The chrome layer above is already painted with
+    // alpha-0.55 surface tokens (Harmony-glass) so contrast against
+    // the cover comes mostly from the glass, not from a heavy black
+    // overlay. 0.2 keeps text legible without erasing the cover.
     Box(
       modifier = Modifier
         .fillMaxSize()
-        .background(surface.copy(alpha = 0.65f)),
-    )
-    // Top + bottom fades — strengthen the scrim where the app bar
-    // and nav bar sit so transparent chrome reads as chrome.
-    Box(
-      modifier = Modifier
-        .fillMaxSize()
-        .background(
-          Brush.verticalGradient(
-            colorStops = arrayOf(
-              0f to surface.copy(alpha = 0.25f),
-              0.2f to Color.Transparent,
-              0.8f to Color.Transparent,
-              1f to surface.copy(alpha = 0.25f),
-            ),
-          ),
-        ),
+        .background(surface.copy(alpha = 0.2f)),
     )
   }
 }
