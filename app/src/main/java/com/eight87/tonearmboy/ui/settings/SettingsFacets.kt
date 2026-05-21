@@ -26,6 +26,13 @@ interface ThemeSettings {
   val baseTheme: Setting<BaseTheme>
   val albumArtTintEnabled: Setting<Boolean>
   /**
+   * When [albumArtTintEnabled] AND this are both on, the playing
+   * track's cover art renders fullscreen behind the chrome with a
+   * heavy gaussian blur + readability scrim (Harmony-style). Disabled
+   * automatically when [albumArtTintEnabled] is off.
+   */
+  val albumArtBackgroundEnabled: Setting<Boolean>
+  /**
    * Custom chrome tint colour. Stored as a 24-bit RGB packed `Long`
    * (0..0xFFFFFF), or `0` for "unset" (fall back to album-art tint
    * when [albumArtTintEnabled], or no tint otherwise). When non-zero,

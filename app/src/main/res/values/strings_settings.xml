@@ -68,6 +68,8 @@
   <string name="settings_lookandfeel_base_theme_subtitle">Foundation colors. Album art tint sits on top.</string>
   <string name="settings_lookandfeel_album_art_tint_label">Tint chrome by album art</string>
   <string name="settings_lookandfeel_album_art_tint_subtitle">Bias surfaces toward the playing track\'s dominant color.</string>
+  <string name="settings_lookandfeel_album_art_background_label">Use album art as background</string>
+  <string name="settings_lookandfeel_album_art_background_subtitle">Blur the playing cover behind the chrome (Harmony-style).</string>
   <string name="settings_lookandfeel_custom_chrome_tint_label">Custom tint color</string>
   <string name="settings_lookandfeel_custom_chrome_tint_subtitle">Pick a colour to override the album-art tint.</string>
   <string name="settings_custom_chrome_tint_unset">Album art</string>

@@ -85,6 +85,8 @@ class MainActivity : ComponentActivity() {
         .collectAsStateWithLifecycle(initialValue = BaseTheme.Default)
       val albumArtTintEnabled by graph.settingsRepository.albumArtTintEnabled.flow
         .collectAsStateWithLifecycle(initialValue = true)
+      val albumArtBackgroundEnabled by graph.settingsRepository.albumArtBackgroundEnabled.flow
+        .collectAsStateWithLifecycle(initialValue = true)
       val customChromeTintRaw by graph.settingsRepository.customChromeTint.flow
         .collectAsStateWithLifecycle(initialValue = 0L)
       val customChromeTint: androidx.compose.ui.graphics.Color? =
@@ -100,10 +102,16 @@ class MainActivity : ComponentActivity() {
       // D.20.4 — observe the playback state so we can refresh the
       // album palette whenever the playing track changes.
       val playbackState by graph.playbackUiController.state.collectAsStateWithLifecycle()
-      LaunchedEffect(playbackState.mediaStoreAlbumId) {
-        graph.albumPaletteSource.setAlbumId(playbackState.mediaStoreAlbumId)
+      LaunchedEffect(playbackState.trackId, playbackState.mediaStoreAlbumId) {
+        graph.albumPaletteSource.setNowPlaying(
+          trackId = playbackState.trackId,
+          albumId = playbackState.mediaStoreAlbumId,
+        )
       }
       val albumPalette by graph.albumPaletteSource.palette.collectAsStateWithLifecycle()
+      val albumCoverUri by graph.albumPaletteSource.coverUri.collectAsStateWithLifecycle()
+      val showAlbumArtBackground = albumArtTintEnabled && albumArtBackgroundEnabled &&
+        albumCoverUri != null
 
       CompositionLocalProvider(LocalAlbumPalette provides albumPalette) {
         TonearmboyTheme(
@@ -112,7 +120,18 @@ class MainActivity : ComponentActivity() {
           albumArtTintEnabled = albumArtTintEnabled,
           customChromeTint = customChromeTint,
         ) {
-          Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+          androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+            if (showAlbumArtBackground) {
+              com.eight87.tonearmboy.theme.AlbumArtBackground(
+                coverUri = albumCoverUri,
+                modifier = Modifier.fillMaxSize(),
+              )
+            }
+            Surface(
+              modifier = Modifier.fillMaxSize(),
+              color = if (showAlbumArtBackground) androidx.compose.ui.graphics.Color.Transparent
+              else MaterialTheme.colorScheme.background,
+            ) {
             // D.19 — wrap the app in the runtime-permission gate so a
             // fresh install on a real phone walks the system grant flow
             // for READ_MEDIA_AUDIO. On grant we trigger a full library
@@ -140,6 +159,7 @@ class MainActivity : ComponentActivity() {
               }
             }
           }
+        }
         }
       }
     }

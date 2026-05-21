@@ -64,6 +64,8 @@
   <string name="settings_lookandfeel_base_theme_subtitle">Grundfarben. Albumcover-Tönung wird darübergelegt.</string>
   <string name="settings_lookandfeel_album_art_tint_label">Oberfläche nach Albumcover einfärben</string>
   <string name="settings_lookandfeel_album_art_tint_subtitle">Flächen an die dominante Farbe des laufenden Titels anpassen.</string>
+  <string name="settings_lookandfeel_album_art_background_label">Albumcover als Hintergrund</string>
+  <string name="settings_lookandfeel_album_art_background_subtitle">Das laufende Cover unscharf hinter der Oberfläche anzeigen (Harmony-Stil).</string>
 
   <!-- Theme picker labels. -->
   <string name="settings_lookandfeel_theme_automatic">Systemeinstellung</string>

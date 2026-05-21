@@ -146,6 +146,7 @@ object SettingsCatalog {
   const val ID_THEME = "look_and_feel.theme"
   const val ID_BASE_THEME = "look_and_feel.base_theme"
   const val ID_ALBUM_ART_TINT = "look_and_feel.album_art_tint"
+  const val ID_ALBUM_ART_BACKGROUND = "look_and_feel.album_art_background"
   const val ID_CUSTOM_CHROME_TINT = "look_and_feel.custom_chrome_tint"
 
   const val ID_LIBRARY_TABS = "personalize.library_tabs"

@@ -110,6 +110,9 @@ fun SettingsLookAndFeelScreen(
   val albumArtTintEnabled by theme.albumArtTintEnabled.flow.collectAsState(
     initial = true,
   )
+  val albumArtBackgroundEnabled by theme.albumArtBackgroundEnabled.flow.collectAsState(
+    initial = true,
+  )
   val customChromeTint by theme.customChromeTint.flow.collectAsState(initial = 0L)
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -153,6 +156,11 @@ fun SettingsLookAndFeelScreen(
       id = SettingsCatalog.ID_ALBUM_ART_TINT,
       checked = albumArtTintEnabled,
       onCheckedChange = { scope.launch { theme.albumArtTintEnabled.set(it) } },
+    ),
+    SettingsRowBinding.Toggle(
+      id = SettingsCatalog.ID_ALBUM_ART_BACKGROUND,
+      checked = albumArtBackgroundEnabled,
+      onCheckedChange = { scope.launch { theme.albumArtBackgroundEnabled.set(it) } },
     ),
     // Custom chrome tint colour — picker. Subtitle reflects the current
     // state: hex value when set, "Album art" when unset (the
