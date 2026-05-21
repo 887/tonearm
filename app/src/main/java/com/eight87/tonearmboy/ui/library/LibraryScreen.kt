@@ -137,12 +137,13 @@ enum class ContainerStyle { SettingsCard, EdgeToEdge }
  */
 @Composable
 internal fun Modifier.libraryListCard(): Modifier {
-  val bg = MaterialTheme.colorScheme.surfaceContainer
-  return this
-    .padding(horizontal = SettingsDimens.PagePadding)
-    .clip(RoundedCornerShape(SettingsDimens.CardCornerRadius))
-    .background(bg)
-    .semantics { testTag = "library_list_card" }
+  // Whisperboy-style edge-to-edge: the list fills the full width with
+  // no left/right page padding and no wrapping card chrome — items
+  // (which carry their own surfaceContainer* tier) read directly
+  // against the page surface (or the album-art background, when that
+  // layer is active). Keeps section headers + tiles full-width and
+  // lets the cover-as-wallpaper bleed past the edges of every row.
+  return this.semantics { testTag = "library_list_card" }
 }
 
 /**
