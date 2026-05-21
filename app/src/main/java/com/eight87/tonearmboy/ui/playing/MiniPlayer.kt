@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -115,13 +116,21 @@ fun MiniPlayer(
 ) {
   if (!state.hasMedia) return
   // G+ — fillMaxSize so the surfaceContainerHigh background fills the
-  // sheet's peek slot end-to-end. Wrapping content created a strip of
-  // the sheet's underlying `surface` color visible beneath the mini-
-  // player's last row (user-visible "gap").
+  // sheet's peek slot end-to-end. We wrap the Column in a Material 3
+  // Surface (rather than `Modifier.background(surfaceContainerHigh)`)
+  // so `LocalContentColor` propagates to the IconButtons in the
+  // transport row — `Modifier.background` paints a colour but does
+  // NOT set the content-color CompositionLocal, so the row's icons
+  // were inheriting the OUTER `onBackground` colour (~black against
+  // a tinted dark surface = invisible). Surface fills max size and
+  // takes the same colour, so the no-gap guarantee that drove the
+  // original Modifier.background choice still holds.
+  Surface(
+    modifier = Modifier.fillMaxSize(),
+    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+  ) {
   Column(
-    modifier = Modifier
-      .fillMaxSize()
-      .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    modifier = Modifier.fillMaxSize(),
   ) {
     // -- Info row ------------------------------------------------------
     // testTag `mini_player` lives here (with the clickable for onExpand)
@@ -229,6 +238,7 @@ fun MiniPlayer(
       gapSize = 0.dp,
       drawStopIndicator = {},
     )
+  }
   }
 }
 
