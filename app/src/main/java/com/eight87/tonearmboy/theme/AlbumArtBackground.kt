@@ -68,6 +68,15 @@ fun AlbumArtBackground(
       modifier = Modifier
         .fillMaxSize()
         .graphicsLayer {
+          // Piped / YouTube thumbnail covers come with embedded
+          // letterbox bars (16:9 source with the 1:1 album painted
+          // in the middle). 1.6x zoom pushes those baked-in black
+          // borders past the visible bounds; the parent Box's
+          // clipping crops the overflow. Combined with TileMode.CLAMP
+          // on the blur below, the result is edge-to-edge cover
+          // colour with no dark bands.
+          scaleX = 1.6f
+          scaleY = 1.6f
           if (composeBlurEffect != null) renderEffect = composeBlurEffect
         },
     )
