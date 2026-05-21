@@ -101,20 +101,28 @@ fun TonearmboyTheme(
     secondaryContainer = blendSurface(baseScheme.secondaryContainer, tint),
   )
 
-  // Harmony-glass: when the album-art background layer is active,
-  // override **only** `colorScheme.background` to fully transparent.
-  // Every Material widget that paints its own container (Card,
-  // TopAppBar, Surface, Sheet, MiniPlayer, transport-row Surface)
-  // reads `colorScheme.surface*` — those stay solid (and tinted by
-  // the album palette via the blend above). Scaffolds default
-  // `containerColor` to `colorScheme.background`, so flipping that
-  // single token to Color.Transparent makes the Scaffold's "void"
-  // band reveal the blurred cover painted behind the activity root
-  // Surface, while every actual chrome widget keeps its opaque
-  // tinted container. That's the Harmony pattern: cover as wallpaper,
-  // chrome on top as opaque panels.
+  // Harmony-glass: cover-as-wallpaper, chrome translucent on top,
+  // content cards opaque.
+  //
+  //  - `background` (Scaffold container) → fully transparent. The
+  //    void band between widgets reveals the blurred cover.
+  //  - `surface`, `surfaceContainerHigh`, `surfaceContainerHighest`
+  //    (TopAppBar, MiniPlayer, LibraryRail, section headers — all
+  //    chrome) → alpha 0.5 so the cover bleeds through them but the
+  //    tinted chrome tier is still readable as chrome.
+  //  - `surfaceContainer*Low*`, `surfaceVariant`, `surfaceContainer`
+  //    (Card tiles, placeholder bg, dialog containers — all content)
+  //    stay opaque. Card text + thumbs need a solid background to be
+  //    readable; covering them with cover-through-glass would be
+  //    visually noisy.
   val colorScheme = if (!albumArtBackgroundActive) tintedScheme else {
-    tintedScheme.copy(background = Color.Transparent)
+    val chromeAlpha = 0.5f
+    tintedScheme.copy(
+      background = Color.Transparent,
+      surface = tintedScheme.surface.copy(alpha = chromeAlpha),
+      surfaceContainerHigh = tintedScheme.surfaceContainerHigh.copy(alpha = chromeAlpha),
+      surfaceContainerHighest = tintedScheme.surfaceContainerHighest.copy(alpha = chromeAlpha),
+    )
   }
 
   CompositionLocalProvider(
