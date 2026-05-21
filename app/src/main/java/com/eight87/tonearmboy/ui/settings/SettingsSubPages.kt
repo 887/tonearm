@@ -238,12 +238,9 @@ fun SettingsLookAndFeelScreen(
     )
   }
   if (chromeTintPicker) {
-    // Custom chrome tint picker — re-uses the D.25.1 dialog. Default
-    // seed is a soft indigo when no tint is set yet so the picker
-    // opens on a sensible starting point. Picking 0 isn't supported
-    // by the dialog (no Reset button there), so we surface the
-    // "Reset to album art" affordance via long-press on the row —
-    // wired below as a trailing X swatch when set.
+    // Custom chrome tint picker. Default seed is a soft indigo when
+    // no tint is set yet. Reset button (mirrored from whisperboy)
+    // clears the override back to the album-art-derived tint.
     val initial = if (customChromeTint == 0L) 0x6464C8L else customChromeTint
     ColorPickerDialog(
       initialRgb = initial,
@@ -252,6 +249,10 @@ fun SettingsLookAndFeelScreen(
         chromeTintPicker = false
       },
       onDismiss = { chromeTintPicker = false },
+      onReset = {
+        scope.launch { theme.customChromeTint.set(0L) }
+        chromeTintPicker = false
+      },
     )
   }
 }

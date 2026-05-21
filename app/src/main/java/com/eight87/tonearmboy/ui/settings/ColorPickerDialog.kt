@@ -66,6 +66,14 @@ fun ColorPickerDialog(
   initialRgb: Long,
   onConfirm: (Long) -> Unit,
   onDismiss: () -> Unit,
+  /**
+   * When provided, surfaces a "Reset" button between Cancel and OK
+   * so the caller can clear the underlying setting (sentinel `0L`)
+   * without leaving the dialog. Null hides the button — keeps the
+   * dialog OK/Cancel-only for pickers that have no "unset" state.
+   * Mirrors whisperboy's contract.
+   */
+  onReset: (() -> Unit)? = null,
 ) {
   val initialHsv = remember { rgbToHsv(initialRgb) }
   var hue by remember { mutableFloatStateOf(initialHsv[0]) }
@@ -130,10 +138,22 @@ fun ColorPickerDialog(
       }
     },
     confirmButton = {
-      TextButton(
-        onClick = { onConfirm(previewRgb) },
-        modifier = Modifier.semantics { testTag = "color_picker_confirm" },
-      ) { Text(stringResource(R.string.settings_dialog_confirm)) }
+      // Reset (when provided) + Confirm sit together in the confirmButton
+      // slot so all three buttons (Cancel / Reset / OK) land on the
+      // same Material 3 row at the bottom of the dialog. Mirrors
+      // whisperboy's ColorPickerDialog.
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        if (onReset != null) {
+          TextButton(
+            onClick = onReset,
+            modifier = Modifier.semantics { testTag = "color_picker_reset" },
+          ) { Text(stringResource(R.string.settings_color_picker_reset)) }
+        }
+        TextButton(
+          onClick = { onConfirm(previewRgb) },
+          modifier = Modifier.semantics { testTag = "color_picker_confirm" },
+        ) { Text(stringResource(R.string.settings_dialog_confirm)) }
+      }
     },
     dismissButton = {
       TextButton(

@@ -301,6 +301,7 @@
 
   <!-- ===== Color picker dialog ===== -->
   <string name="settings_color_picker_title">Pick a seed color</string>
+  <string name="settings_color_picker_reset">Reset</string>
 
   <!-- ===== Playlist import collision dialog ===== -->
   <string name="settings_playlist_import_overwrite">Overwrite</string>
