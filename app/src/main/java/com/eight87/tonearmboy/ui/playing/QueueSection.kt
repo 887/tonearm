@@ -201,7 +201,9 @@ fun QueueSection(
       modifier = Modifier.semantics { testTag = "queue_up_next_header" },
     )
 
-    OutlinedTextField(
+    // Borderless surface-container TextField — matches the library
+    // search bar pattern and the settings search bar Android uses.
+    androidx.compose.material3.TextField(
       value = filter,
       onValueChange = { filter = it },
       singleLine = true,
@@ -221,6 +223,13 @@ fun QueueSection(
       },
       placeholder = { Text(stringResource(R.string.playing_queue_filter_placeholder)) },
       keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+      colors = androidx.compose.material3.TextFieldDefaults.colors(
+        focusedContainerColor = MaterialTheme.colorScheme.surface,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+        focusedIndicatorColor = Color.Transparent,
+        unfocusedIndicatorColor = Color.Transparent,
+      ),
+      shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
       modifier = Modifier
         .fillMaxWidth()
         .semantics { testTag = "queue_filter_field" },
@@ -345,18 +354,15 @@ internal fun QueueRow(
   onJumpTo: () -> Unit,
   onRemove: () -> Unit,
 ) {
-  // Stable purple for the active queue row, intentionally NOT pulled
-  // from `colorScheme.primaryContainer` — primary follows the user's
-  // base-theme seed, so a custom orange seed (or a Material You device
-  // wallpaper that resolves to orange) would tint the active queue row
-  // orange, colliding with the primary highlight. Locking to a fixed
-  // purple keeps the active row a recognisable signpost regardless of
-  // the rest of the palette.
-  val rowBackground = if (isActive) {
-    QueueActivePurple
-  } else {
-    MaterialTheme.colorScheme.surface
-  }
+  // Active row reads from `secondaryContainer` so it follows the
+  // album-art-derived chrome tint (Theme.kt blends every container
+  // tier 40% toward the palette). The fixed QueueActivePurple
+  // fallback kicks in only when the secondaryContainer would be
+  // close to the inactive surface — i.e. the album palette
+  // produced no usable tint — so the active row never blends into
+  // the inactive band.
+  val activeColor = MaterialTheme.colorScheme.secondaryContainer
+  val rowBackground = if (isActive) activeColor else MaterialTheme.colorScheme.surface
   val rowTag = if (isActive) "queue_row_active" else "queue_row"
   // D.27.9.2 — gate the destructive remove behind an M3 AlertDialog.
   // The dialog uses "queue" wording (not "playlist") because the
@@ -470,4 +476,5 @@ private const val QUEUE_ROW_HEIGHT_DP = 56
  * the v1.0 theme, but pinned so the row stays purple regardless of the
  * user's base-theme seed.
  */
-private val QueueActivePurple = Color(0xFF4A4458)
+@Suppress("unused")
+private val QueueActivePurple = Color(0xFF4A4458) // legacy — replaced by colorScheme.secondaryContainer
