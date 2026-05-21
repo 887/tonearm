@@ -135,6 +135,21 @@ fun TonearmboyApp(
   val albumCoversMode by graph.settingsRepository.albumCoversMode.flow
     .collectAsStateWithLifecycle(initialValue = AlbumCoversMode.Default)
 
+  // Sheet-internal cover wallpaper. The activity root paints an
+  // AlbumArtBackground; the library scaffold over that one is
+  // translucent so the cover bleeds through. But when the now-playing
+  // sheet expands ABOVE the library, the library's opaque tiles sit
+  // between the sheet's translucent chrome and the activity root's
+  // wallpaper — so the sheet needs its own cover layer so the user
+  // sees the cover through the sheet chrome instead of the library.
+  val sheetAlbumArtTintEnabled by graph.settingsRepository.albumArtTintEnabled.flow
+    .collectAsStateWithLifecycle(initialValue = true)
+  val sheetAlbumArtBackgroundEnabled by graph.settingsRepository.albumArtBackgroundEnabled.flow
+    .collectAsStateWithLifecycle(initialValue = true)
+  val sheetCoverUri by graph.albumPaletteSource.coverUri.collectAsStateWithLifecycle()
+  val sheetShowCoverWallpaper = sheetAlbumArtTintEnabled &&
+    sheetAlbumArtBackgroundEnabled && sheetCoverUri != null
+
   val openNowPlayingSheet: () -> Unit = remember {
     { coroutineScope.launch { sheetProgress.animateTo(1f) }; Unit }
   }
@@ -390,7 +405,14 @@ fun TonearmboyApp(
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
             .height(sheetHeightDp)
-            .background(MaterialTheme.colorScheme.surface)
+            .then(
+              // When the cover-as-wallpaper layer is active, the sheet
+              // bg is the blurred cover (painted as a child below).
+              // Without it, fall back to the opaque tinted surface so
+              // the sheet still occludes the library underneath.
+              if (sheetShowCoverWallpaper) Modifier
+              else Modifier.background(MaterialTheme.colorScheme.surface),
+            )
             .clipToBounds()
             .nestedScroll(sheetNestedScroll)
             .draggable(
@@ -399,6 +421,17 @@ fun TonearmboyApp(
               onDragStopped = { onSheetDragSettle() },
             ),
         ) {
+          // Sheet-internal cover wallpaper. Sits at the bottom of the
+          // sheet's child stack so every chrome composable inside
+          // (NowPlaying TopAppBar, queue rows, transport row,
+          // MiniPlayer) paints on top of it. Translucent chrome
+          // surfaces reveal this cover, not the library underneath.
+          if (sheetShowCoverWallpaper) {
+            com.eight87.tonearmboy.theme.AlbumArtBackground(
+              coverUri = sheetCoverUri,
+              modifier = Modifier.fillMaxSize(),
+            )
+          }
           // Inner stack: anchored to the TOP of the sheet, fixed at full
           // screen height so the layout doesn't reflow as the sheet grows.
           // The MiniPlayer is ALWAYS composed when [showMiniPlayer] —
