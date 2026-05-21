@@ -782,6 +782,16 @@ class SettingsRepository(private val context: Context) :
         }
         prefs[KEY_COVER_ART_PROVIDERS] = com.eight87.tonearmboy.data.albumart.ProviderListCodec.encode(seeded)
       }
+      // One-shot opt-in for the album-art chrome tint + background pair.
+      // Both ship as `true` defaults, but existing installs that wrote
+      // `false` (or never touched the key while the previous code
+      // somehow stored false) miss the default. Flip both ON exactly
+      // once, gated by a marker key so a future toggle-off survives.
+      if (prefs[KEY_ALBUM_ART_VISUALS_DEFAULTED_V1] != true) {
+        prefs[KEY_ALBUM_ART_TINT_ENABLED] = true
+        prefs[KEY_ALBUM_ART_BACKGROUND_ENABLED] = true
+        prefs[KEY_ALBUM_ART_VISUALS_DEFAULTED_V1] = true
+      }
     }
   }
 
@@ -807,6 +817,7 @@ class SettingsRepository(private val context: Context) :
     internal val KEY_BASE_THEME = stringPreferencesKey("base_theme")
     internal val KEY_ALBUM_ART_TINT_ENABLED = booleanPreferencesKey("album_art_tint_enabled")
     internal val KEY_ALBUM_ART_BACKGROUND_ENABLED = booleanPreferencesKey("album_art_background_enabled")
+    internal val KEY_ALBUM_ART_VISUALS_DEFAULTED_V1 = booleanPreferencesKey("album_art_visuals_defaulted_v1")
     internal val KEY_CUSTOM_CHROME_TINT = androidx.datastore.preferences.core.longPreferencesKey("custom_chrome_tint")
 
     // MediaStore scan-skip cache. The version token is opaque per
