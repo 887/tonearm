@@ -42,6 +42,14 @@ class TonearmboyBitmapLoader(
   private val context: Context,
   private val executor: ListeningExecutorService = DEFAULT_EXECUTOR,
   private val delegate: BitmapLoader = DataSourceBitmapLoader(context.applicationContext),
+  /**
+   * Resolves a user-pinned / auto-fetched cover URI for the given
+   * track. Called on [executor] (off the main thread), so a blocking
+   * DB read is acceptable. Returns `null` when no pin exists and the
+   * loader should fall through to the embedded + MediaStore chain.
+   */
+  private val pinnedUriResolver: (trackId: Long, albumName: String?, albumArtist: String?) -> Uri? =
+    { _, _, _ -> null },
 ) : BitmapLoader {
 
   override fun supportsMimeType(mimeType: String): Boolean =
@@ -64,32 +72,56 @@ class TonearmboyBitmapLoader(
     val albumId = metadata.extras
       ?.getLong(PlaybackUiController.EXTRA_MEDIA_STORE_ALBUM_ID, -1L)
       ?.takeIf { it >= 0 }
+    val trackId = metadata.extras
+      ?.getLong(PlaybackUiController.EXTRA_TRACK_ID, -1L)
+      ?.takeIf { it >= 0 }
+    val albumName = metadata.albumTitle?.toString()
+    val albumArtist = metadata.albumArtist?.toString() ?: metadata.artist?.toString()
 
-    // Fast path: no artwork URI and no album id → let the framework
-    // fall back to nothing. Returning null tells Media3 we have no
-    // bitmap source for this metadata, which is the correct signal
-    // for "render no large icon".
-    if (artworkUri == null && albumId == null) return null
+    // Step 0: any user-pinned / auto-fetched cover takes priority over
+    // the embedded picture frame and the legacy MediaStore album-art
+    // path. The resolver lookup itself is cheap (a Flow.first()) but
+    // it has to hit Room, so we run it on [executor] inside the
+    // primary future.
+    val pinnedFuture: ListenableFuture<Bitmap>? = if (trackId != null) {
+      executor.submit<Bitmap> {
+        val pinned = pinnedUriResolver(trackId, albumName, albumArtist)
+          ?: throw java.io.FileNotFoundException("no pinned cover for trackId=$trackId")
+        delegate.loadBitmap(pinned).get()
+      }
+    } else null
+
+    // Fast path: no artwork URI, no album id, no pinned route → let
+    // the framework fall back to nothing. Returning null tells Media3
+    // we have no bitmap source for this metadata, which is the
+    // correct signal for "render no large icon".
+    if (pinnedFuture == null && artworkUri == null && albumId == null) return null
 
     val embeddedFuture: ListenableFuture<Bitmap>? = artworkUri?.let { delegate.loadBitmap(it) }
 
-    if (embeddedFuture != null && albumId == null) {
-      return embeddedFuture
+    // Build the fallback chain pinned → embedded → album-art-content.
+    // Each missing step is collapsed; each present step catches the
+    // previous step's failure via Futures.catchingAsync.
+    var future: ListenableFuture<Bitmap>? = pinnedFuture
+    if (embeddedFuture != null) {
+      future = if (future == null) embeddedFuture
+      else Futures.catchingAsync(
+        future,
+        Throwable::class.java,
+        { _ -> embeddedFuture },
+        executor,
+      )
     }
-    if (embeddedFuture == null && albumId != null) {
-      return loadFromAlbumArtContentUri(albumId)
+    if (albumId != null) {
+      future = if (future == null) loadFromAlbumArtContentUri(albumId)
+      else Futures.catchingAsync(
+        future,
+        Throwable::class.java,
+        { _ -> loadFromAlbumArtContentUri(albumId) },
+        executor,
+      )
     }
-    // Both available: try embedded first, fall back to album-art uri
-    // on failure. We chain via Futures.catchingAsync so a transparent
-    // hop happens off the calling thread.
-    val primary: ListenableFuture<Bitmap> = embeddedFuture!!
-    val fallbackId: Long = albumId!!
-    return Futures.catchingAsync(
-      primary,
-      Throwable::class.java,
-      { _ -> loadFromAlbumArtContentUri(fallbackId) },
-      executor,
-    )
+    return future
   }
 
   internal fun loadFromAlbumArtContentUri(albumId: Long): ListenableFuture<Bitmap> {

@@ -237,8 +237,13 @@ internal fun QueuePersistence.Entry.toMediaItem(): MediaItem {
   // tint can find a cover bitmap. The metadata Builder doesn't take
   // a Bundle directly until you call setExtras, so we materialise
   // it lazily.
-  val extras = mediaStoreAlbumId?.let { id ->
-    android.os.Bundle().apply { putLong("tonearmboy.mediaStoreAlbumId", id) }
+  val extras = android.os.Bundle().apply {
+    mediaId.toLongOrNull()?.let { tid ->
+      putLong(PlaybackUiController.EXTRA_TRACK_ID, tid)
+    }
+    if (mediaStoreAlbumId != null) {
+      putLong(PlaybackUiController.EXTRA_MEDIA_STORE_ALBUM_ID, mediaStoreAlbumId)
+    }
   }
   val metadata = MediaMetadata.Builder()
     .setTitle(title)
@@ -246,7 +251,7 @@ internal fun QueuePersistence.Entry.toMediaItem(): MediaItem {
     .setAlbumTitle(album)
     .setAlbumArtist(albumArtist)
     .also { if (artworkUri != null) it.setArtworkUri(Uri.parse(artworkUri)) }
-    .also { if (extras != null) it.setExtras(extras) }
+    .setExtras(extras)
     .build()
   return MediaItem.Builder()
     .setMediaId(mediaId)

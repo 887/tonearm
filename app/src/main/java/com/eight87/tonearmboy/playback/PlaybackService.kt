@@ -26,6 +26,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -74,10 +75,18 @@ class PlaybackService : MediaSessionService() {
     mediaSession = MediaSession.Builder(this, player)
       .setSessionActivity(buildSessionActivityPendingIntent())
       .setCallback(SessionCallback())
-      // D.23.2 — custom BitmapLoader that tries embedded picture frame
-      // first, falls back to MediaStore legacy album-art keyed off the
-      // EXTRA_MEDIA_STORE_ALBUM_ID extras attached in Track.toMediaItem.
-      .setBitmapLoader(TonearmboyBitmapLoader(applicationContext))
+      // D.23.2 — custom BitmapLoader. Cascade: user-pinned / auto-fetched
+      // cover (resolved from LibraryRepository keyed off EXTRA_TRACK_ID),
+      // then the embedded picture frame, then MediaStore legacy album-art
+      // keyed off EXTRA_MEDIA_STORE_ALBUM_ID.
+      .setBitmapLoader(
+        TonearmboyBitmapLoader(
+          context = applicationContext,
+          pinnedUriResolver = { trackId, albumName, albumArtist ->
+            resolvePinnedCoverUri(trackId, albumName, albumArtist)
+          },
+        ),
+      )
       .build()
 
     queuePersistenceController = QueuePersistenceController(
@@ -125,6 +134,31 @@ class PlaybackService : MediaSessionService() {
     }
     PlayerHolder.release()
     super.onDestroy()
+  }
+
+  /**
+   * Resolve the pinned cover URI for the currently-loading track on the
+   * BitmapLoader's worker thread. Per-track override wins; album-level
+   * pin is the fallback. `runBlocking` is fine here — this is called
+   * on `tonearmboy-bitmaploader`, not the main thread.
+   */
+  private fun resolvePinnedCoverUri(
+    trackId: Long,
+    albumName: String?,
+    albumArtist: String?,
+  ): android.net.Uri? = runBlocking {
+    val graph = AppGraph.get(applicationContext)
+    val trackPinned = (graph.tracks.trackCoverChoice(trackId).first()
+      as? com.eight87.tonearmboy.data.AlbumCoverChoice.Pinned)?.uri
+    val albumPinned = if (trackPinned == null && !albumName.isNullOrBlank()) {
+      val key = com.eight87.tonearmboy.data.albumKey(albumName, albumArtist)
+      (graph.albums.albumCoverChoice(key).first()
+        as? com.eight87.tonearmboy.data.AlbumCoverChoice.Pinned)?.uri
+    } else null
+    val pickedUri = trackPinned ?: albumPinned
+    pickedUri
+      ?.takeIf { com.eight87.tonearmboy.data.albumart.AlbumArtFetcher.pinnedFileStillExists(it) }
+      ?.let(android.net.Uri::parse)
   }
 
   private fun buildSessionActivityPendingIntent(): PendingIntent =

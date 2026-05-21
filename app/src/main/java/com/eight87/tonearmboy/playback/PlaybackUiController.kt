@@ -120,6 +120,13 @@ class PlaybackUiController private constructor(
      */
     const val EXTRA_MEDIA_STORE_ALBUM_ID = "tonearmboy.mediaStoreAlbumId"
 
+    /**
+     * Extras key carrying the local Track.id so the BitmapLoader can
+     * resolve any user-pinned / bulk-fetched cover from the LibraryRepository
+     * for lock-screen + notification surfaces.
+     */
+    const val EXTRA_TRACK_ID = "tonearmboy.trackId"
+
     /** R.C.9 — factory that wires every collaborator around a shared holder. */
     operator fun invoke(applicationContext: Context): PlaybackUiController {
       val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

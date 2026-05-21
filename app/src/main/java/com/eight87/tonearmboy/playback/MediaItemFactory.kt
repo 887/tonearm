@@ -23,9 +23,13 @@ internal fun Track.toMediaItem(): MediaItem {
   // D.15.7 — also stash the MediaStore album id so the in-app
   // NowPlaying surface can drive the same legacy-albumart Coil
   // request the library tabs do (cheaper + already cached).
-  val extras = mediaStoreAlbumId?.let { id ->
-    android.os.Bundle().apply {
-      putLong(PlaybackUiController.EXTRA_MEDIA_STORE_ALBUM_ID, id)
+  // Always stash the track id so the BitmapLoader can resolve a pinned
+  // cover (per-track / per-album) from the LibraryRepository when the
+  // file itself carries no embedded picture frame.
+  val extras = android.os.Bundle().apply {
+    putLong(PlaybackUiController.EXTRA_TRACK_ID, id)
+    if (mediaStoreAlbumId != null) {
+      putLong(PlaybackUiController.EXTRA_MEDIA_STORE_ALBUM_ID, mediaStoreAlbumId)
     }
   }
   val metadata = MediaMetadata.Builder()
@@ -34,7 +38,7 @@ internal fun Track.toMediaItem(): MediaItem {
     .setAlbumTitle(album)
     .setAlbumArtist(albumArtist)
     .setArtworkUri(fileUri)
-    .also { if (extras != null) it.setExtras(extras) }
+    .setExtras(extras)
     .build()
   return MediaItem.Builder()
     .setMediaId(id.toString())
