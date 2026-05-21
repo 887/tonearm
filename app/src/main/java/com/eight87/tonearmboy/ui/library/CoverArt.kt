@@ -136,14 +136,16 @@ fun CoverArt(
         ?: coverUriOverride?.takeIf { it.isNotBlank() }
         ?: albumArtUri(albumId ?: 0L)
     }
-    // Perf — we only need to react to the Error phase (to flip the
-    // overlay back to the music-note placeholder when the local
-    // lookup fails). Loading is left as the flat surfaceVariant
-    // background — pending cells show as colored squares, image
-    // pops in when ready (Aves-style). Dropping the per-cell
-    // CircularProgressIndicator removes the compose/measure/draw
-    // cost that was dominating Songs-tab scroll.
+    // Track three phases: Loading (small indeterminate spinner overlay
+    // so the user sees the decode is in flight), Error (music-note
+    // placeholder), or Success (just the image). The per-cell spinner
+    // was previously dropped for Songs-tab scroll perf, but it left
+    // covers appearing to "pop in" silently on first scroll-into-view —
+    // the user wants the visible cue back. The spinner is only mounted
+    // while state == Loading, so once Coil's memory cache is warm the
+    // compose/measure/draw cost goes away.
     var isError by remember(uri) { mutableStateOf(false) }
+    var isLoading by remember(uri) { mutableStateOf(true) }
 
     val request = remember(uri) {
       // Coil derives size from layout.
@@ -165,20 +167,22 @@ fun CoverArt(
       contentScale = ContentScale.Crop,
       onState = { state ->
         isError = state is AsyncImagePainter.State.Error
+        isLoading = state is AsyncImagePainter.State.Loading ||
+          state is AsyncImagePainter.State.Empty
       },
     )
 
     // Overlay rules:
-    //   - Fetching from web: cloud-download icon + spinner takes
-    //     precedence — the user sees the network activity.
-    //   - Error: music-note placeholder (replaces partial image with
-    //     the canonical "no art" symbol).
-    //   - Otherwise: nothing on top. While Coil is loading the cell
-    //     shows the flat surfaceVariant background, image pops in
-    //     once decoded.
+    //   - Fetching from web: cloud-download icon + spinner — network.
+    //   - Error: music-note placeholder.
+    //   - Loading: tiny indeterminate spinner so the user sees the
+    //     decode is in flight (covers don't appear to silently "pop in"
+    //     on first scroll-into-view).
+    //   - Success: nothing on top.
     when {
       fetching -> FetchingIndicator(size)
       isError -> Placeholder(size)
+      isLoading -> LoadingSpinner(size)
       else -> Unit
     }
   }
@@ -206,6 +210,20 @@ private fun FetchingIndicator(size: Dp) {
       modifier = Modifier.size((size * 0.32f).coerceAtLeast(18.dp)),
     )
   }
+}
+
+/**
+ * Tiny indeterminate spinner shown while Coil is decoding the cover.
+ * 35% of the tile, 2dp stroke — visible enough to read as "loading"
+ * without dominating the cell.
+ */
+@Composable
+private fun LoadingSpinner(size: Dp) {
+  CircularProgressIndicator(
+    modifier = Modifier.size((size * 0.35f).coerceAtLeast(20.dp)),
+    strokeWidth = 2.dp,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
 }
 
 @Composable
