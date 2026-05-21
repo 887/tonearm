@@ -64,6 +64,13 @@ fun TonearmboyTheme(
   // this colour" gesture. When null, we fall through to the album
   // palette path.
   customChromeTint: Color? = null,
+  // When true, every theme surface token paints with reduced alpha so
+  // the fullscreen blurred-cover layer beneath the activity Surface
+  // shows through every Material widget (Harmony-style glass). Pair
+  // with the `AlbumArtBackground` composable + a transparent root
+  // Surface in the activity; widgets read `colorScheme.surface*` and
+  // become translucent automatically.
+  albumArtBackgroundActive: Boolean = false,
   content: @Composable () -> Unit,
 ) {
   val baseScheme = resolveBaseScheme(darkTheme, baseTheme)
@@ -82,7 +89,7 @@ fun TonearmboyTheme(
   // recomposes Theme on tint change because `tint` is read above and
   // any change re-invokes the function — colours just snap rather
   // than crossfade. Acceptable trade for the startup win.
-  val colorScheme = if (tint == null) baseScheme else baseScheme.copy(
+  val tintedScheme = if (tint == null) baseScheme else baseScheme.copy(
     surface = blendSurface(baseScheme.surface, tint),
     surfaceVariant = blendSurface(baseScheme.surfaceVariant, tint),
     background = blendSurface(baseScheme.background, tint),
@@ -93,6 +100,31 @@ fun TonearmboyTheme(
     surfaceContainerHighest = blendSurface(baseScheme.surfaceContainerHighest, tint),
     secondaryContainer = blendSurface(baseScheme.secondaryContainer, tint),
   )
+
+  // Harmony-glass: drop the alpha on every surface token when the
+  // album-art-background layer is active. The activity root Surface
+  // paints transparent, AlbumArtBackground paints the blurred cover
+  // behind everything, and each Material widget (Scaffold, TopAppBar,
+  // Card, Sheet, ModalBottomSheet, …) becomes glassy because its
+  // container colour reads from `colorScheme.surface*` here.
+  //
+  // 0.55 is the sweet spot: chrome stays clearly chrome, but cover
+  // colour + contour bleed through enough that the user reads the
+  // screen as "music player on top of cover", not "music player with
+  // an unrelated wallpaper somewhere".
+  val colorScheme = if (!albumArtBackgroundActive) tintedScheme else {
+    val a = 0.55f
+    tintedScheme.copy(
+      surface = tintedScheme.surface.copy(alpha = a),
+      surfaceVariant = tintedScheme.surfaceVariant.copy(alpha = a),
+      background = tintedScheme.background.copy(alpha = a),
+      surfaceContainerLowest = tintedScheme.surfaceContainerLowest.copy(alpha = a),
+      surfaceContainerLow = tintedScheme.surfaceContainerLow.copy(alpha = a),
+      surfaceContainer = tintedScheme.surfaceContainer.copy(alpha = a),
+      surfaceContainerHigh = tintedScheme.surfaceContainerHigh.copy(alpha = a),
+      surfaceContainerHighest = tintedScheme.surfaceContainerHighest.copy(alpha = a),
+    )
+  }
 
   CompositionLocalProvider(
     // Re-publish the palette local from the receiving site so child

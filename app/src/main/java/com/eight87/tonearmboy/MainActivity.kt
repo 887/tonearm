@@ -119,6 +119,7 @@ class MainActivity : ComponentActivity() {
           baseTheme = baseTheme,
           albumArtTintEnabled = albumArtTintEnabled,
           customChromeTint = customChromeTint,
+          albumArtBackgroundActive = showAlbumArtBackground,
         ) {
           androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
             if (showAlbumArtBackground) {

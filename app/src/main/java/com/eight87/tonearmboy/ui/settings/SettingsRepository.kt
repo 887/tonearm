@@ -790,6 +790,12 @@ class SettingsRepository(private val context: Context) :
       if (prefs[KEY_ALBUM_ART_VISUALS_DEFAULTED_V1] != true) {
         prefs[KEY_ALBUM_ART_TINT_ENABLED] = true
         prefs[KEY_ALBUM_ART_BACKGROUND_ENABLED] = true
+        // Clear any previously-set custom tint. A custom tint hard-
+        // overrides the album-art-derived tint, so an upgrader who
+        // had `#30304A` (or any colour) parked there from an earlier
+        // experiment would see album-art tint silently no-op. Zero
+        // = unset, falls through to the album palette.
+        prefs[KEY_CUSTOM_CHROME_TINT] = 0L
         prefs[KEY_ALBUM_ART_VISUALS_DEFAULTED_V1] = true
       }
     }
