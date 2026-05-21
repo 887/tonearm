@@ -121,7 +121,9 @@ if "${PUSH_TO_GH}"; then
         COMMIT_RANGE="HEAD"
         CHANGELOG_HEADER="Recent changes"
     fi
-    COMMIT_LIST="$(git log "${COMMIT_RANGE}" --pretty=format:'- %s (%h)' | head -n 50)"
+    # Use git's native `-n` so we don't hit SIGPIPE under `set -o pipefail`
+    # when the commit count exceeds 50 (head closes the pipe early).
+    COMMIT_LIST="$(git log "${COMMIT_RANGE}" -n 50 --pretty=format:'- %s (%h)')"
     [ -z "${COMMIT_LIST}" ] && COMMIT_LIST="- (no commits since previous tag)"
 
     NOTES_FILE="$(mktemp)"
