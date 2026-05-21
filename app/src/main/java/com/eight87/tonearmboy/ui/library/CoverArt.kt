@@ -131,6 +131,15 @@ fun CoverArt(
     }
 
     val context = LocalContext.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    // Explicit pixel target for the decode — shutterboy's CoverTile
+    // pattern. Without this, Coil falls back to the Painter's intrinsic
+    // size + content-scale-derived target, which on Songs-grid tiles
+    // ends up decoding the full-resolution embedded picture frame (often
+    // 1200x1200+) for a ~150px cell. Pinning the target keeps each
+    // decode to roughly tile-size — material on the user's library
+    // where covers come from Piped / iTunes at 600x600+.
+    val targetPx = with(density) { size.toPx().toInt().coerceAtLeast(1) }
     val uri: Any = remember(albumId, coverUriOverride, perTrackUri) {
       perTrackUri?.takeIf { it.isNotBlank() }
         ?: coverUriOverride?.takeIf { it.isNotBlank() }
@@ -147,11 +156,15 @@ fun CoverArt(
     var isError by remember(uri) { mutableStateOf(false) }
     var isLoading by remember(uri) { mutableStateOf(true) }
 
-    val request = remember(uri) {
-      // Coil derives size from layout.
-      val key = "cover-$uri"
+    val request = remember(uri, targetPx) {
+      // Cache + decode keyed by URI + target px. Different grid zoom
+      // levels (Albums 2-col vs 4-col) request different sizes and
+      // get independently-cached entries instead of fighting over the
+      // same bucket.
+      val key = "cover-$uri-$targetPx"
       ImageRequest.Builder(context)
         .data(uri)
+        .size(coil3.size.Size(targetPx, targetPx))
         .precision(Precision.INEXACT)
         .memoryCacheKey(key)
         .diskCacheKey(key)
@@ -213,16 +226,21 @@ private fun FetchingIndicator(size: Dp) {
 }
 
 /**
- * Tiny indeterminate spinner shown while Coil is decoding the cover.
- * 35% of the tile, 2dp stroke — visible enough to read as "loading"
- * without dominating the cell.
+ * Static 75% arc shown while Coil is decoding the cover. Determinate
+ * `CircularProgressIndicator` with `progress = { 0.75f }` so it's a
+ * single frozen frame — no spin animation, no per-frame recomposition,
+ * no compose cost while N tiles are mid-decode on a scroll-in. The
+ * arc is enough visual cue that work is happening.
  */
 @Composable
 private fun LoadingSpinner(size: Dp) {
   CircularProgressIndicator(
+    progress = { 0.75f },
     modifier = Modifier.size((size * 0.35f).coerceAtLeast(20.dp)),
     strokeWidth = 2.dp,
     color = MaterialTheme.colorScheme.onSurfaceVariant,
+    trackColor = androidx.compose.ui.graphics.Color.Transparent,
+    gapSize = 0.dp,
   )
 }
 
