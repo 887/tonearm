@@ -8,11 +8,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Article
@@ -120,6 +124,28 @@ fun AboutScreen(
         .semantics { testTag = "about_screen" },
       verticalArrangement = Arrangement.spacedBy(SettingsDimens.CardSpacing),
     ) {
+      // App-icon header. Whisperboy's About uses the same shape with its own icon at
+      // the top; tonearmboy puts the fox here. The full-size reveal still happens
+      // behind the easter-egg (triple-tap on version) — the header is a smaller
+      // teaser that signals "this app has a fox" without spoiling the easter-egg
+      // payload (the reveal is a 70%-scrim fullscreen modal, much more dramatic).
+      Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+      ) {
+        Image(
+          painter = painterResource(id = R.drawable.easter_egg_fox),
+          contentDescription = null,
+          modifier = Modifier.size(96.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+          text = stringResource(R.string.app_name),
+          style = MaterialTheme.typography.headlineSmall,
+          fontWeight = FontWeight.Medium,
+        )
+      }
+
       // ---- Build card ----
       SettingsCard(
         title = stringResource(R.string.settings_about_card_build),
